@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string, metadata?: { display_name?: string; restaurant_name?: string }) => {
-    const { error, data } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -50,11 +50,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       },
     });
     if (error) throw error;
-
-    // Update restaurant_name in profiles if provided
-    if (data.user && metadata?.restaurant_name) {
-      await supabase.from("profiles").update({ restaurant_name: metadata.restaurant_name }).eq("id", data.user.id);
-    }
   };
 
   const signOut = async () => {

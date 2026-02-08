@@ -157,6 +157,80 @@ export type Database = {
           },
         ]
       }
+      menu_intelligence_snapshots: {
+        Row: {
+          avg_margin: number
+          avg_stress: number
+          classification_breakdown: Json
+          computed_at: string
+          created_at: string
+          health_delta: number
+          health_score: number
+          hidden_loss_makers: Json
+          highest_stress_contributors: Json
+          id: string
+          low_impact_items: Json
+          restaurant_id: string
+          risk_summary: Json
+          top_profit_contributors: Json
+          total_dishes: number
+          total_profit: number
+          total_revenue: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          avg_margin?: number
+          avg_stress?: number
+          classification_breakdown?: Json
+          computed_at?: string
+          created_at?: string
+          health_delta?: number
+          health_score?: number
+          hidden_loss_makers?: Json
+          highest_stress_contributors?: Json
+          id?: string
+          low_impact_items?: Json
+          restaurant_id: string
+          risk_summary?: Json
+          top_profit_contributors?: Json
+          total_dishes?: number
+          total_profit?: number
+          total_revenue?: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          avg_margin?: number
+          avg_stress?: number
+          classification_breakdown?: Json
+          computed_at?: string
+          created_at?: string
+          health_delta?: number
+          health_score?: number
+          hidden_loss_makers?: Json
+          highest_stress_contributors?: Json
+          id?: string
+          low_impact_items?: Json
+          restaurant_id?: string
+          risk_summary?: Json
+          top_profit_contributors?: Json
+          total_dishes?: number
+          total_profit?: number
+          total_revenue?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_intelligence_snapshots_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_items: {
         Row: {
           category: string

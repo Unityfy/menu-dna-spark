@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.compute-dish-dna]
 verify_jwt = false
+
+[functions.compute-menu-intelligence]
+verify_jwt = false

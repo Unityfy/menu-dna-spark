@@ -26,6 +26,14 @@ export const useSalesIngestion = () => {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<IngestionResult | null>(null);
 
+  const sanitizeCSVValue = (value: string): string => {
+    // Prevent CSV injection by stripping leading formula characters
+    if (/^[=+\-@\t\r]/.test(value)) {
+      return value.replace(/^[=+\-@\t\r]+/, "");
+    }
+    return value;
+  };
+
   const parseCSV = (text: string): SalesRecord[] => {
     const lines = text.trim().split("\n");
     if (lines.length < 2) return [];
@@ -34,7 +42,7 @@ export const useSalesIngestion = () => {
     const records: SalesRecord[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",").map((v) => v.trim());
+      const values = lines[i].split(",").map((v) => sanitizeCSVValue(v.trim()));
       if (values.length < headers.length) continue;
 
       const row: Record<string, string> = {};

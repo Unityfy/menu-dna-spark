@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLatestSnapshot, DishSummary } from "@/hooks/useMenuIntelligence";
-import { recommendations } from "@/data/mockData";
+import { useRecommendations } from "@/hooks/useRecommendations";
 import CircularScore from "@/components/shared/CircularScore";
 import StatusBadge, { classificationLabel } from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
@@ -62,9 +62,9 @@ const Dashboard = () => {
     );
   }
 
-  const pendingRecs = recommendations.filter((r) => r.status === "pending");
+  const { data: recs = [] } = useRecommendations();
+  const pendingRecs = recs.filter((r) => r.status === "pending");
   const highStressCount = (snapshot.highest_stress_contributors || []).filter((d) => d.stress_score > 60).length;
-
   return (
     <div className="space-y-8">
       {/* Header */}

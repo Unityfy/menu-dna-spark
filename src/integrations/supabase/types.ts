@@ -325,6 +325,100 @@ export type Database = {
           },
         ]
       }
+      recommendation_outcomes: {
+        Row: {
+          action_at: string
+          action_taken: string
+          baseline_profit: number
+          baseline_revenue: number
+          baseline_stress: number
+          created_at: string
+          effectiveness_score: number | null
+          id: string
+          measured_at: string | null
+          measured_profit: number | null
+          measured_revenue: number | null
+          measured_stress: number | null
+          menu_item_id: string
+          observation_weeks: number
+          profit_delta: number | null
+          recommendation_id: string
+          recommendation_type: string
+          restaurant_id: string
+          revenue_delta: number | null
+          stress_delta: number | null
+          updated_at: string
+        }
+        Insert: {
+          action_at?: string
+          action_taken: string
+          baseline_profit?: number
+          baseline_revenue?: number
+          baseline_stress?: number
+          created_at?: string
+          effectiveness_score?: number | null
+          id?: string
+          measured_at?: string | null
+          measured_profit?: number | null
+          measured_revenue?: number | null
+          measured_stress?: number | null
+          menu_item_id: string
+          observation_weeks?: number
+          profit_delta?: number | null
+          recommendation_id: string
+          recommendation_type: string
+          restaurant_id: string
+          revenue_delta?: number | null
+          stress_delta?: number | null
+          updated_at?: string
+        }
+        Update: {
+          action_at?: string
+          action_taken?: string
+          baseline_profit?: number
+          baseline_revenue?: number
+          baseline_stress?: number
+          created_at?: string
+          effectiveness_score?: number | null
+          id?: string
+          measured_at?: string | null
+          measured_profit?: number | null
+          measured_revenue?: number | null
+          measured_stress?: number | null
+          menu_item_id?: string
+          observation_weeks?: number
+          profit_delta?: number | null
+          recommendation_id?: string
+          recommendation_type?: string
+          restaurant_id?: string
+          revenue_delta?: number | null
+          stress_delta?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_outcomes_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_outcomes_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendation_outcomes_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recommendations: {
         Row: {
           created_at: string

@@ -56,12 +56,23 @@ interface Recommendation {
   priority: number;
 }
 
+// Learning data: aggregated outcome scores per recommendation type and per dish
+interface LearningContext {
+  // Average effectiveness per recommendation type for this restaurant
+  typeEffectiveness: Map<string, { avg: number; count: number }>;
+  // Number of times a dish+type combo was ignored
+  ignoreCount: Map<string, number>;
+  // Number of times a dish+type combo was approved but ineffective (score < 0.3)
+  ineffectiveCount: Map<string, number>;
+}
+
 function generateRecommendations(
   profiles: DishProfile[],
   menuMap: Map<string, MenuItem>,
   restaurantId: string,
   snapshotId: string | null,
-  weekStart: string
+  weekStart: string,
+  learning: LearningContext
 ): Recommendation[] {
   const recs: Recommendation[] = [];
   const avgMargin = profiles.reduce((s, p) => s + (p.true_margin || 0), 0) / profiles.length;
@@ -73,11 +84,13 @@ function generateRecommendations(
     if (!item) continue;
     const name = item.name;
 
+    const candidates: { type: string; rec: Omit<Recommendation, "priority"> }[] = [];
+
     // 1. Price optimization: low margin, decent demand
     if (p.true_margin < avgMargin * 0.75 && p.weekly_orders > 15) {
       const suggestedIncrease = Math.round(item.selling_price * 0.08);
       const expectedProfitGain = Math.round(suggestedIncrease * p.weekly_orders * 0.7);
-      recs.push({
+      candidates.push({ type: "price", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "price",
         title: `Increase price by ₹${suggestedIncrease}`,
@@ -85,14 +98,14 @@ function generateRecommendations(
         expected_revenue_impact: Math.round(suggestedIncrease * p.weekly_orders),
         expected_profit_impact: expectedProfitGain,
         expected_stress_impact: 0,
-        status: "pending", week_start: weekStart, priority: priority++,
-      });
+        status: "pending", week_start: weekStart,
+      }});
     }
 
-    // 2. Portion size / reformulation: moderate margin + high food cost ratio + declining demand
+    // 2. Portion size / reformulation
     if (p.true_margin < avgMargin && p.demand_trend === "declining" && item.food_cost > item.selling_price * 0.4) {
       const costSaving = Math.round(item.food_cost * 0.15);
-      recs.push({
+      candidates.push({ type: "reformulate", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "reformulate",
         title: "Reduce portion size or substitute ingredients",
@@ -100,13 +113,13 @@ function generateRecommendations(
         expected_revenue_impact: 0,
         expected_profit_impact: Math.round(costSaving * p.weekly_orders),
         expected_stress_impact: Math.round(-p.prep_time_volatility * 0.3),
-        status: "pending", week_start: weekStart, priority: priority++,
-      });
+        status: "pending", week_start: weekStart,
+      }});
     }
 
-    // 3. Time-based availability: extreme peak hour concentration
+    // 3. Time-based availability
     if (p.peak_hour_concentration > 55 && p.stress_score > avgStress) {
-      recs.push({
+      candidates.push({ type: "availability", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "availability",
         title: "Restrict to peak hours only",
@@ -114,13 +127,13 @@ function generateRecommendations(
         expected_revenue_impact: Math.round(-p.weekly_revenue * 0.05),
         expected_profit_impact: Math.round(-p.weekly_profit * 0.03),
         expected_stress_impact: Math.round(-p.stress_score * 0.2),
-        status: "pending", week_start: weekStart, priority: priority++,
-      });
+        status: "pending", week_start: weekStart,
+      }});
     }
 
-    // 4. Dine-in vs delivery restriction: high stress + high prep time volatility
+    // 4. Dine-in vs delivery restriction
     if (p.stress_score > 60 && p.prep_time_volatility > 20) {
-      recs.push({
+      candidates.push({ type: "channel", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "channel",
         title: "Restrict to dine-in only",
@@ -128,13 +141,13 @@ function generateRecommendations(
         expected_revenue_impact: Math.round(-p.weekly_revenue * 0.15),
         expected_profit_impact: Math.round(-p.weekly_profit * 0.1),
         expected_stress_impact: Math.round(-p.stress_score * 0.25),
-        status: "pending", week_start: weekStart, priority: priority++,
-      });
+        status: "pending", week_start: weekStart,
+      }});
     }
 
-    // 5. Gradual dish removal: hidden-loss or low-impact with declining demand
+    // 5. Gradual dish removal
     if ((p.classification === "hidden-loss" || p.classification === "low-impact-filler") && p.demand_trend === "declining" && p.weekly_orders < 40) {
-      recs.push({
+      candidates.push({ type: "remove", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "remove",
         title: "Consider removing from menu",
@@ -142,14 +155,14 @@ function generateRecommendations(
         expected_revenue_impact: Math.round(-p.weekly_revenue),
         expected_profit_impact: Math.round(-p.weekly_profit),
         expected_stress_impact: Math.round(-p.stress_score),
-        status: "pending", week_start: weekStart, priority: priority++,
-      });
+        status: "pending", week_start: weekStart,
+      }});
     }
 
-    // 6. Seasonal revival / promotion: rising demand + high profit
+    // 6. Seasonal revival / promotion
     if (p.demand_trend === "rising" && p.classification === "high-profit") {
       const potentialGain = Math.round(p.weekly_revenue * 0.15);
-      recs.push({
+      candidates.push({ type: "promote", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "promote",
         title: "Feature as weekly special",
@@ -157,13 +170,13 @@ function generateRecommendations(
         expected_revenue_impact: potentialGain,
         expected_profit_impact: Math.round(potentialGain * (p.true_margin / 100)),
         expected_stress_impact: Math.round(p.stress_score * 0.1),
-        status: "pending", week_start: weekStart, priority: priority++,
-      });
+        status: "pending", week_start: weekStart,
+      }});
     }
 
     // 7. Cannibalization resolution
     if (p.cannibalization_score > 40) {
-      recs.push({
+      candidates.push({ type: "bundle", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "bundle",
         title: "Bundle or differentiate from competing dishes",
@@ -171,16 +184,90 @@ function generateRecommendations(
         expected_revenue_impact: 0,
         expected_profit_impact: Math.round(p.weekly_profit * 0.1),
         expected_stress_impact: Math.round(-p.stress_score * 0.1),
-        status: "pending", week_start: weekStart, priority: priority++,
-      });
+        status: "pending", week_start: weekStart,
+      }});
+    }
+
+    // --- LEARNING FILTER ---
+    // Skip recommendations that the user has ignored 3+ times for this dish+type
+    // Suppress recommendation types that have been consistently ineffective (avg score < 0.3 with 3+ data points)
+    for (const candidate of candidates) {
+      const dishTypeKey = `${p.menu_item_id}:${candidate.type}`;
+
+      // Skip if ignored too many times for this specific dish
+      const ignores = learning.ignoreCount.get(dishTypeKey) || 0;
+      if (ignores >= 3) continue;
+
+      // Suppress types that are proven ineffective for this restaurant
+      const typeStats = learning.typeEffectiveness.get(candidate.type);
+      if (typeStats && typeStats.count >= 3 && typeStats.avg < 0.3) continue;
+
+      // Demote (but don't skip) types with poor track record — lower expected impact by 30%
+      const ineffective = learning.ineffectiveCount.get(dishTypeKey) || 0;
+      if (ineffective >= 2) {
+        candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * 0.7);
+        candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * 0.7);
+      }
+
+      // Boost types with strong track record (avg effectiveness > 1.0 with 3+ samples)
+      if (typeStats && typeStats.count >= 3 && typeStats.avg > 1.0) {
+        candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * 1.2);
+        candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * 1.2);
+      }
+
+      recs.push({ ...candidate.rec, priority: priority++ });
     }
   }
 
-  // Sort by expected profit impact descending (prioritize highest-impact recommendations)
+  // Sort by expected profit impact descending
   recs.sort((a, b) => Math.abs(b.expected_profit_impact) - Math.abs(a.expected_profit_impact));
   recs.forEach((r, i) => { r.priority = i; });
 
   return recs;
+}
+
+async function buildLearningContext(
+  supabase: any,
+  restaurantId: string
+): Promise<LearningContext> {
+  const typeEffectiveness = new Map<string, { avg: number; count: number }>();
+  const ignoreCount = new Map<string, number>();
+  const ineffectiveCount = new Map<string, number>();
+
+  // Fetch all measured outcomes for this restaurant
+  const { data: outcomes } = await supabase
+    .from("recommendation_outcomes")
+    .select("menu_item_id, recommendation_type, action_taken, effectiveness_score")
+    .eq("restaurant_id", restaurantId);
+
+  if (!outcomes) return { typeEffectiveness, ignoreCount, ineffectiveCount };
+
+  // Aggregate type-level effectiveness (only from measured outcomes)
+  const typeAgg = new Map<string, number[]>();
+
+  for (const o of outcomes) {
+    const dishTypeKey = `${o.menu_item_id}:${o.recommendation_type}`;
+
+    if (o.action_taken === "ignored") {
+      ignoreCount.set(dishTypeKey, (ignoreCount.get(dishTypeKey) || 0) + 1);
+    }
+
+    if (o.effectiveness_score !== null) {
+      if (!typeAgg.has(o.recommendation_type)) typeAgg.set(o.recommendation_type, []);
+      typeAgg.get(o.recommendation_type)!.push(o.effectiveness_score);
+
+      if (o.effectiveness_score < 0.3 && o.action_taken === "approved") {
+        ineffectiveCount.set(dishTypeKey, (ineffectiveCount.get(dishTypeKey) || 0) + 1);
+      }
+    }
+  }
+
+  for (const [type, scores] of typeAgg) {
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    typeEffectiveness.set(type, { avg, count: scores.length });
+  }
+
+  return { typeEffectiveness, ignoreCount, ineffectiveCount };
 }
 
 Deno.serve(async (req) => {
@@ -216,21 +303,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch dish profiles
-    const { data: profiles, error: profErr } = await supabase
-      .from("dish_profiles")
-      .select("*")
-      .eq("restaurant_id", restaurantId);
+    // Fetch dish profiles and menu items in parallel
+    const [profilesRes, learningCtx] = await Promise.all([
+      supabase.from("dish_profiles").select("*").eq("restaurant_id", restaurantId),
+      buildLearningContext(supabase, restaurantId),
+    ]);
 
-    if (profErr) throw profErr;
+    if (profilesRes.error) throw profilesRes.error;
+    const profiles = profilesRes.data;
     if (!profiles || profiles.length === 0) {
       return new Response(JSON.stringify({ error: "No dish profiles found. Run Dish DNA computation first." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch menu items
-    const menuItemIds = profiles.map((p) => p.menu_item_id);
+    const menuItemIds = profiles.map((p: any) => p.menu_item_id);
     const { data: menuItems } = await supabase
       .from("menu_items")
       .select("id, name, category, selling_price, food_cost, prep_time_minutes, is_active")
@@ -250,7 +337,6 @@ Deno.serve(async (req) => {
     weekStart.setHours(0, 0, 0, 0);
     const weekStartStr = weekStart.toISOString().slice(0, 10);
 
-    // Get latest snapshot if exists
     const { data: latestSnapshot } = await supabase
       .from("menu_intelligence_snapshots")
       .select("id")
@@ -261,23 +347,23 @@ Deno.serve(async (req) => {
 
     const snapshotId = latestSnapshot?.id || null;
 
-    // Generate recommendations
     const recs = generateRecommendations(
       profiles as DishProfile[],
       menuMap,
       restaurantId,
       snapshotId,
-      weekStartStr
+      weekStartStr,
+      learningCtx
     );
 
-    // Delete existing recommendations for this week (regenerate)
+    // Delete existing pending recommendations for this week (regenerate)
     await supabase
       .from("recommendations")
       .delete()
       .eq("restaurant_id", restaurantId)
-      .eq("week_start", weekStartStr);
+      .eq("week_start", weekStartStr)
+      .eq("status", "pending");
 
-    // Insert new recommendations
     if (recs.length > 0) {
       const { error: insertErr } = await supabase
         .from("recommendations")

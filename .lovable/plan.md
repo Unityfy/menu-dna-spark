@@ -1,188 +1,114 @@
 
 
-# Role-Based Access Control (RBAC) for Menu DNA
+# Core Screens Refinement Plan
 
-## Overview
-Add an owner/manager role system so restaurant owners can control who has access to billing, settings, and user management, while managers get read-only access to insights and recommendations.
+## Current State
 
-## What You Will Get
-- Two roles: **owner** (full control) and **manager** (limited access)
-- A `restaurants` table to represent each restaurant entity
-- A `user_roles` table linking users to roles and restaurants (separate from profiles, per security best practices)
-- A server-side `has_role()` helper function for secure role checks in RLS policies
-- A React hook (`useUserRole`) for client-side role awareness
-- A `RoleProtectedRoute` component to gate UI sections by role
+| Screen | Data Source | Status |
+|---|---|---|
+| Dashboard | Live (Supabase snapshots + recommendations) | Ready |
+| Dish DNA Profile | Mock data (`mockData.ts`) | Needs migration |
+| Weekly Action Plan | Live (Supabase recommendations) | Ready |
+| Menu List | Mock data (`mockData.ts`) | Needs migration |
+| History | Live (Supabase snapshots) | Needs "before vs after" |
 
-## How It Works
+The Dashboard and Action Plan screens are already connected to Supabase. The main work is migrating the **Dish Profile** and **Menu List** screens to live data, and adding a **before vs after comparison** to the History screen.
 
-1. Each user is associated with a restaurant and assigned a role (owner or manager) in a dedicated `user_roles` table.
-2. The first user who signs up creates a restaurant and is automatically assigned the **owner** role.
-3. Owners can later invite managers (future feature -- the schema supports it now).
-4. RLS policies on all tables use a `has_role()` security-definer function to check permissions without recursion.
-5. Client-side, a `useUserRole` hook fetches the current user's role and restaurant, enabling conditional UI rendering.
+---
 
-## Important Security Note
-Per Supabase security best practices, roles are stored in a **separate `user_roles` table** -- never on the profiles table. The schema you proposed with `role` on a users table would create privilege escalation risks. This plan follows the secure pattern instead.
+## Changes
+
+### 1. Create a Dish Profile data hook
+
+A new hook `useDishProfile` in `src/hooks/useDishProfile.ts` will:
+- Accept a `menu_item_id` parameter
+- Fetch the matching row from `dish_profiles` (joined conceptually with `menu_items` for name, category, selling price, food cost, prep time, station, complexity)
+- Fetch related recommendations from the `recommendations` table filtered by `menu_item_id`
+- Return loading, error, and data states
+
+Since there are no foreign keys between `dish_profiles` and `menu_items`, the hook will make two parallel queries:
+- `menu_items` filtered by `id`
+- `dish_profiles` filtered by `menu_item_id`
+
+### 2. Refactor Dish DNA Profile View (`src/pages/DishProfile.tsx`)
+
+Replace all mock data imports with the new `useDishProfile` hook:
+- Map database fields to the existing UI (e.g., `true_margin` instead of `margin`, `risk_flags` JSONB array, `competing_dishes` JSONB array, `demand_pattern` JSONB)
+- Add proper loading skeleton state
+- Add empty state when dish is not found
+- Wire "Active Recommendations" section to live `recommendations` data
+- Keep the exact same visual layout and 2x2 analysis grid
+
+### 3. Create a Menu List data hook
+
+A new hook `useMenuList` in `src/hooks/useMenuList.ts` will:
+- Fetch all active `menu_items` with their corresponding `dish_profiles`
+- Query `menu_items` where `is_active = true`, then query `dish_profiles` and merge by `menu_item_id`
+- Extract distinct categories for the filter bar
+- Return combined dish list with classification, margin, stress, orders, and revenue
+
+### 4. Refactor Menu List (`src/pages/MenuList.tsx`)
+
+Replace mock data with the new hook:
+- Dynamic category list derived from actual menu items
+- Loading skeleton state
+- Empty state directing users to onboarding
+- Same card layout with margin, stress, orders, and revenue columns
+
+### 5. Add Before vs After Comparison to History (`src/pages/History.tsx`)
+
+Add a new section below the existing trends:
+- When 2+ snapshots exist, show a comparison card between the most recent and previous week
+- Display side-by-side metrics: health score, revenue, profit, avg margin, avg stress
+- Show delta with color-coded direction indicators (green for improvement, amber for decline)
+- Show classification breakdown changes (e.g., "High-profit items: 4 -> 5")
+
+### 6. Minor Dashboard fix
+
+The Dashboard currently calls `useRecommendations()` conditionally (after the early return for `!snapshot`). This violates React's rules of hooks. Move the hook call above the conditional returns.
 
 ---
 
 ## Technical Details
 
-### Step 1 -- Database Migration
+### Data mapping for Dish Profile
 
-Create the `restaurants` table, `app_role` enum, `user_roles` table, and `has_role()` function:
-
-```sql
--- Role enum
-CREATE TYPE public.app_role AS ENUM ('owner', 'manager');
-
--- Restaurants table
-CREATE TABLE public.restaurants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
-);
-ALTER TABLE public.restaurants ENABLE ROW LEVEL SECURITY;
-
--- User roles table (links users to restaurants with a role)
-CREATE TABLE public.user_roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  restaurant_id UUID REFERENCES public.restaurants(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL DEFAULT 'manager',
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  UNIQUE (user_id, role)
-);
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-
--- Add restaurant_id to profiles
-ALTER TABLE public.profiles
-  ADD COLUMN restaurant_id UUID REFERENCES public.restaurants(id) ON DELETE SET NULL;
-
--- Security definer function for role checks (avoids RLS recursion)
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = _role
-  )
-$$;
-
--- Helper: get user's restaurant_id
-CREATE OR REPLACE FUNCTION public.get_user_restaurant_id(_user_id UUID)
-RETURNS UUID
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT restaurant_id FROM public.user_roles
-  WHERE user_id = _user_id
-  LIMIT 1
-$$;
-
--- RLS: restaurants
-CREATE POLICY "Users can view own restaurant"
-  ON public.restaurants FOR SELECT TO authenticated
-  USING (id = public.get_user_restaurant_id(auth.uid()));
-
-CREATE POLICY "Owners can update own restaurant"
-  ON public.restaurants FOR UPDATE TO authenticated
-  USING (id = public.get_user_restaurant_id(auth.uid())
-    AND public.has_role(auth.uid(), 'owner'));
-
--- RLS: user_roles
-CREATE POLICY "Users can view roles in own restaurant"
-  ON public.user_roles FOR SELECT TO authenticated
-  USING (restaurant_id = public.get_user_restaurant_id(auth.uid()));
-
-CREATE POLICY "Owners can manage roles"
-  ON public.user_roles FOR ALL TO authenticated
-  USING (restaurant_id = public.get_user_restaurant_id(auth.uid())
-    AND public.has_role(auth.uid(), 'owner'));
+```text
+Database fields          -->  UI fields
+─────────────────────────────────────────
+menu_items.name          -->  dish name
+menu_items.category      -->  category
+menu_items.selling_price -->  selling price
+menu_items.food_cost     -->  food cost
+menu_items.prep_time_minutes --> prep time
+menu_items.station       -->  station
+menu_items.complexity    -->  complexity
+dish_profiles.true_margin    -->  margin
+dish_profiles.stress_score   -->  stress score
+dish_profiles.weekly_orders  -->  weekly orders
+dish_profiles.weekly_revenue -->  weekly revenue
+dish_profiles.weekly_profit  -->  weekly profit
+dish_profiles.classification -->  classification badge
+dish_profiles.demand_trend   -->  demand trend
+dish_profiles.risk_flags     -->  risk flag pills
+dish_profiles.competing_dishes --> cannibalization section
+dish_profiles.demand_pattern   --> demand pattern section
+dish_profiles.peak_hour_concentration --> peak hour stat
+dish_profiles.prep_time_volatility    --> volatility stat
+dish_profiles.demand_spike_frequency  --> spike count
+dish_profiles.cannibalization_score   --> overlap score bar
 ```
 
-### Step 2 -- Update Signup Trigger
+### Files created
+- `src/hooks/useDishProfile.ts` -- single dish + menu item + recommendations
+- `src/hooks/useMenuList.ts` -- all active dishes with profiles
 
-Modify `handle_new_user()` to auto-create a restaurant and assign the owner role on signup:
+### Files modified
+- `src/pages/DishProfile.tsx` -- swap mock data for live hook
+- `src/pages/MenuList.tsx` -- swap mock data for live hook
+- `src/pages/History.tsx` -- add before vs after comparison section
+- `src/pages/Dashboard.tsx` -- fix hooks ordering (move useRecommendations above conditionals)
 
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  new_restaurant_id UUID;
-BEGIN
-  -- Create restaurant from metadata
-  INSERT INTO public.restaurants (name)
-  VALUES (COALESCE(NEW.raw_user_meta_data->>'restaurant_name', 'My Restaurant'))
-  RETURNING id INTO new_restaurant_id;
-
-  -- Create profile linked to restaurant
-  INSERT INTO public.profiles (id, display_name, restaurant_id)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'display_name', new_restaurant_id);
-
-  -- Assign owner role
-  INSERT INTO public.user_roles (user_id, restaurant_id, role)
-  VALUES (NEW.id, new_restaurant_id, 'owner');
-
-  RETURN NEW;
-END;
-$$;
-```
-
-### Step 3 -- React Hook: `useUserRole`
-
-Create `src/hooks/useUserRole.ts`:
-- Queries `user_roles` table for the current user
-- Returns `{ role, restaurantId, isOwner, isManager, loading }`
-- Uses TanStack Query for caching
-
-### Step 4 -- Role-Protected Route Component
-
-Create `src/components/RoleProtectedRoute.tsx`:
-- Accepts `allowedRoles` prop (e.g., `['owner']`)
-- Uses `useUserRole` to check access
-- Shows "Access Denied" or redirects if role is insufficient
-
-### Step 5 -- Update App Routing
-
-Prepare route structure for role-gated pages (no new pages yet, but the infrastructure is ready):
-
-```
-/dashboard          -- both roles
-/settings           -- owner only (future)
-/billing            -- owner only (future)
-/team               -- owner only (future)
-```
-
-### Step 6 -- Update Auth Context
-
-Remove `restaurant_name` update from `signUp` in AuthContext since the trigger now handles restaurant creation automatically.
-
-### Files to Create
-- `src/hooks/useUserRole.ts`
-- `src/components/RoleProtectedRoute.tsx`
-
-### Files to Modify
-- `src/contexts/AuthContext.tsx` (remove manual profile update in signUp)
-- `src/App.tsx` (no immediate route changes, but prepared for role-gated routes)
-
-### Database Changes
-- New enum: `app_role`
-- New table: `restaurants`
-- New table: `user_roles`
-- New column: `profiles.restaurant_id`
-- New functions: `has_role()`, `get_user_restaurant_id()`
-- Updated function: `handle_new_user()`
-- RLS policies on `restaurants` and `user_roles`
+### No database changes needed
+All required tables and columns already exist.
 

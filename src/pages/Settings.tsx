@@ -1,9 +1,23 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSalesIngestion } from "@/hooks/useSalesIngestion";
+import { Upload, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 
 const SettingsPage = () => {
   const { user } = useAuth();
   const [restaurantName, setRestaurantName] = useState("Spice Garden");
+  const { uploadCSV, uploading, result } = useSalesIngestion();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith(".csv")) {
+      return;
+    }
+    uploadCSV(file);
+    e.target.value = "";
+  };
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -44,20 +58,57 @@ const SettingsPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-foreground">POS Connection</p>
-            <p className="text-xs text-muted-foreground">Not connected</p>
+            <p className="text-xs text-muted-foreground">Read-only sync from your POS system</p>
           </div>
           <button className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
             Connect POS
           </button>
         </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-foreground">CSV Upload</p>
-            <p className="text-xs text-muted-foreground">Upload sales data manually</p>
+        <div className="border-t border-border pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-foreground">CSV Upload</p>
+              <p className="text-xs text-muted-foreground">
+                Upload sales data as CSV (columns: dish_name, quantity_sold, selling_price, order_timestamp, order_type)
+              </p>
+            </div>
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="rounded-md bg-secondary border border-border px-4 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-40 flex items-center gap-2"
+              >
+                {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {uploading ? "Uploading…" : "Upload CSV"}
+              </button>
+            </div>
           </div>
-          <button className="rounded-md bg-secondary border border-border px-4 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors">
-            Upload CSV
-          </button>
+          {result && (
+            <div className={`rounded-md border p-3 text-xs space-y-1 ${result.skipped > 0 ? "border-warning/30 bg-warning/5" : "border-opportunity/30 bg-opportunity/5"}`}>
+              <div className="flex items-center gap-1.5">
+                {result.skipped > 0 ? (
+                  <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                ) : (
+                  <CheckCircle className="h-3.5 w-3.5 text-opportunity" />
+                )}
+                <span className="text-foreground font-medium">
+                  {result.imported} of {result.total} records imported
+                </span>
+              </div>
+              {result.errors.length > 0 && (
+                <ul className="text-muted-foreground pl-5 list-disc">
+                  {result.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

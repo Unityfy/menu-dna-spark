@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      ingestion_logs: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          records_imported: number | null
+          records_skipped: number | null
+          records_total: number | null
+          restaurant_id: string
+          source: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          records_imported?: number | null
+          records_skipped?: number | null
+          records_total?: number | null
+          restaurant_id: string
+          source: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          records_imported?: number | null
+          records_skipped?: number | null
+          records_total?: number | null
+          restaurant_id?: string
+          source?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_logs_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -69,6 +116,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sales_transactions: {
+        Row: {
+          created_at: string
+          dish_id: string | null
+          dish_name: string
+          id: string
+          order_timestamp: string
+          order_type: string
+          quantity_sold: number
+          raw_payload: Json | null
+          restaurant_id: string
+          selling_price: number
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          dish_id?: string | null
+          dish_name: string
+          id?: string
+          order_timestamp: string
+          order_type?: string
+          quantity_sold?: number
+          raw_payload?: Json | null
+          restaurant_id: string
+          selling_price: number
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          dish_id?: string | null
+          dish_name?: string
+          id?: string
+          order_timestamp?: string
+          order_type?: string
+          quantity_sold?: number
+          raw_payload?: Json | null
+          restaurant_id?: string
+          selling_price?: number
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_transactions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

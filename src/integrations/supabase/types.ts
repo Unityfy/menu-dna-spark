@@ -325,6 +325,85 @@ export type Database = {
           },
         ]
       }
+      recommendations: {
+        Row: {
+          created_at: string
+          dish_name: string
+          expected_profit_impact: number
+          expected_revenue_impact: number
+          expected_stress_impact: number
+          id: string
+          menu_item_id: string
+          priority: number
+          reasoning: string
+          restaurant_id: string
+          snapshot_id: string | null
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          dish_name: string
+          expected_profit_impact?: number
+          expected_revenue_impact?: number
+          expected_stress_impact?: number
+          id?: string
+          menu_item_id: string
+          priority?: number
+          reasoning: string
+          restaurant_id: string
+          snapshot_id?: string | null
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          dish_name?: string
+          expected_profit_impact?: number
+          expected_revenue_impact?: number
+          expected_stress_impact?: number
+          id?: string
+          menu_item_id?: string
+          priority?: number
+          reasoning?: string
+          restaurant_id?: string
+          snapshot_id?: string | null
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendations_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "menu_intelligence_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurants: {
         Row: {
           created_at: string

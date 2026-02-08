@@ -34,6 +34,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: snapshot, isLoading } = useLatestSnapshot();
+  const { data: recs = [] } = useRecommendations();
 
   if (isLoading) {
     return (
@@ -61,8 +62,6 @@ const Dashboard = () => {
       />
     );
   }
-
-  const { data: recs = [] } = useRecommendations();
   const pendingRecs = recs.filter((r) => r.status === "pending");
   const highStressCount = (snapshot.highest_stress_contributors || []).filter((d) => d.stress_score > 60).length;
   return (

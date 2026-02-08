@@ -2,6 +2,13 @@ import { useSnapshotHistory } from "@/hooks/useMenuIntelligence";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
 
+const classificationLabels: Record<string, string> = {
+  "high-profit": "High-profit",
+  "hidden-loss": "Hidden loss",
+  "kitchen-disruptor": "Kitchen disruptor",
+  "low-impact-filler": "Low-impact",
+};
+
 const HistoryPage = () => {
   const { data: snapshots, isLoading } = useSnapshotHistory();
 
@@ -33,12 +40,89 @@ const HistoryPage = () => {
   const maxRevenue = Math.max(...snapshots.map((s) => s.total_revenue));
   const maxProfit = Math.max(...snapshots.map((s) => s.total_profit));
 
+  // Before vs After comparison (most recent vs previous)
+  const current = snapshots[0];
+  const previous = snapshots.length >= 2 ? snapshots[1] : null;
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Historical Comparison</h1>
         <p className="text-sm text-muted-foreground mt-1">Weekly performance snapshots</p>
       </div>
+
+      {/* Before vs After Comparison */}
+      {previous && (
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h2 className="text-sm font-medium text-foreground mb-4">Before vs After</h2>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs text-muted-foreground mb-3">{previous.week_label}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-3">{current.week_label}</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            {[
+              { label: "Health Score", prev: previous.health_score, curr: current.health_score, suffix: "", higher: true },
+              { label: "Revenue", prev: previous.total_revenue, curr: current.total_revenue, prefix: "₹", higher: true },
+              { label: "Profit", prev: previous.total_profit, curr: current.total_profit, prefix: "₹", higher: true },
+              { label: "Avg Margin", prev: previous.avg_margin, curr: current.avg_margin, suffix: "%", higher: true },
+              { label: "Avg Stress", prev: previous.avg_stress, curr: current.avg_stress, suffix: "%", higher: false },
+            ].map(({ label, prev, curr, prefix, suffix, higher }) => {
+              const delta = curr - prev;
+              const improved = higher ? delta > 0 : delta < 0;
+              return (
+                <div key={label} className="grid grid-cols-3 items-center gap-4 text-xs">
+                  <span className="text-muted-foreground">{label}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground font-medium">
+                      {prefix}{typeof prev === "number" && prev > 999 ? prev.toLocaleString() : Number(prev).toFixed(1)}{suffix}
+                    </span>
+                    <span className="text-muted-foreground mx-2">→</span>
+                    <span className="text-foreground font-medium">
+                      {prefix}{typeof curr === "number" && curr > 999 ? curr.toLocaleString() : Number(curr).toFixed(1)}{suffix}
+                    </span>
+                  </div>
+                  <span className={cn(
+                    "text-right font-medium",
+                    delta === 0 ? "text-muted-foreground" : improved ? "text-opportunity" : "text-warning"
+                  )}>
+                    {delta > 0 ? "+" : ""}{typeof delta === "number" && Math.abs(delta) > 999 ? delta.toLocaleString() : Number(delta).toFixed(1)}{suffix}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Classification breakdown changes */}
+          {current.classification_breakdown && previous.classification_breakdown && (
+            <div className="mt-6 pt-4 border-t border-border">
+              <h3 className="text-xs font-medium text-foreground mb-3">Classification Changes</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {Object.entries(current.classification_breakdown).map(([key, val]) => {
+                  const prevVal = (previous.classification_breakdown as Record<string, number>)[key] ?? 0;
+                  const delta = (val as number) - prevVal;
+                  return (
+                    <div key={key} className="text-center">
+                      <p className="text-xs text-muted-foreground">{classificationLabels[key] || key}</p>
+                      <p className="text-sm font-medium text-foreground mt-1">
+                        {prevVal} → {val as number}
+                      </p>
+                      {delta !== 0 && (
+                        <p className={cn("text-xs font-medium", delta > 0 ? "text-opportunity" : "text-warning")}>
+                          {delta > 0 ? "+" : ""}{delta}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Weekly snapshots grid */}
       <div>

@@ -1,1 +1,4 @@
 project_id = "zuymqduavlhdsmppmnga"
+
+[functions.ingest-sales]
+verify_jwt = false

@@ -1,3 +1,7 @@
+export type DishClassification = "high-profit" | "hidden-loss" | "kitchen-disruptor" | "low-impact-filler";
+export type DemandTrend = "rising" | "stable" | "declining";
+export type RiskFlag = "profit_risk" | "stress_risk" | "demand_risk" | "cannibalization_risk";
+
 export interface Dish {
   id: string;
   name: string;
@@ -10,9 +14,21 @@ export interface Dish {
   weekly_revenue: number;
   weekly_profit: number;
   prep_time: number;
-  classification: "star" | "puzzle" | "plow_horse" | "dog";
-  demand_pattern: "stable" | "growing" | "declining" | "volatile";
-  cannibalization: string[];
+  station: string;
+  complexity: "low" | "medium" | "high";
+  classification: DishClassification;
+  demand_trend: DemandTrend;
+  peak_hour_concentration: number;
+  prep_time_volatility: number;
+  demand_spike_frequency: number;
+  cannibalization_score: number;
+  competing_dishes: { dishId: string; dishName: string; overlapScore: number }[];
+  demand_pattern: {
+    byOrderType: { "dine-in": number; takeaway: number; delivery: number };
+    peakDays: string[];
+    peakHours: string[];
+  };
+  risk_flags: RiskFlag[];
 }
 
 export interface Recommendation {
@@ -52,9 +68,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 55100,
     weekly_profit: 37668,
     prep_time: 25,
-    classification: "star",
-    demand_pattern: "stable",
-    cannibalization: [],
+    station: "Tandoor",
+    complexity: "medium",
+    classification: "high-profit",
+    demand_trend: "stable",
+    peak_hour_concentration: 42,
+    prep_time_volatility: 8,
+    demand_spike_frequency: 1,
+    cannibalization_score: 0,
+    competing_dishes: [],
+    demand_pattern: {
+      byOrderType: { "dine-in": 55, takeaway: 25, delivery: 20 },
+      peakDays: ["Friday", "Saturday"],
+      peakHours: ["19:00–21:00"],
+    },
+    risk_flags: [],
   },
   {
     id: "d2",
@@ -68,9 +96,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 27440,
     weekly_profit: 18130,
     prep_time: 20,
-    classification: "star",
-    demand_pattern: "growing",
-    cannibalization: [],
+    station: "Tandoor",
+    complexity: "medium",
+    classification: "high-profit",
+    demand_trend: "rising",
+    peak_hour_concentration: 38,
+    prep_time_volatility: 12,
+    demand_spike_frequency: 2,
+    cannibalization_score: 0,
+    competing_dishes: [],
+    demand_pattern: {
+      byOrderType: { "dine-in": 60, takeaway: 20, delivery: 20 },
+      peakDays: ["Saturday", "Sunday"],
+      peakHours: ["13:00–14:00", "19:00–21:00"],
+    },
+    risk_flags: [],
   },
   {
     id: "d3",
@@ -84,9 +124,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 31200,
     weekly_profit: 24000,
     prep_time: 35,
-    classification: "plow_horse",
-    demand_pattern: "stable",
-    cannibalization: [],
+    station: "Stovetop",
+    complexity: "low",
+    classification: "high-profit",
+    demand_trend: "stable",
+    peak_hour_concentration: 30,
+    prep_time_volatility: 5,
+    demand_spike_frequency: 0,
+    cannibalization_score: 0,
+    competing_dishes: [],
+    demand_pattern: {
+      byOrderType: { "dine-in": 70, takeaway: 15, delivery: 15 },
+      peakDays: ["Wednesday", "Thursday", "Friday"],
+      peakHours: ["12:00–14:00"],
+    },
+    risk_flags: [],
   },
   {
     id: "d4",
@@ -100,9 +152,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 11440,
     weekly_profit: 5280,
     prep_time: 40,
-    classification: "puzzle",
-    demand_pattern: "volatile",
-    cannibalization: ["Mushroom Pasta"],
+    station: "Stovetop",
+    complexity: "high",
+    classification: "kitchen-disruptor",
+    demand_trend: "declining",
+    peak_hour_concentration: 65,
+    prep_time_volatility: 35,
+    demand_spike_frequency: 3,
+    cannibalization_score: 58,
+    competing_dishes: [{ dishId: "d7", dishName: "Mushroom Pasta", overlapScore: 58 }],
+    demand_pattern: {
+      byOrderType: { "dine-in": 80, takeaway: 10, delivery: 10 },
+      peakDays: ["Friday", "Saturday"],
+      peakHours: ["20:00–21:00"],
+    },
+    risk_flags: ["profit_risk", "stress_risk", "cannibalization_risk"],
   },
   {
     id: "d5",
@@ -116,9 +180,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 6300,
     weekly_profit: 2450,
     prep_time: 8,
-    classification: "dog",
-    demand_pattern: "declining",
-    cannibalization: [],
+    station: "Cold / Assembly",
+    complexity: "low",
+    classification: "hidden-loss",
+    demand_trend: "declining",
+    peak_hour_concentration: 20,
+    prep_time_volatility: 3,
+    demand_spike_frequency: 0,
+    cannibalization_score: 0,
+    competing_dishes: [],
+    demand_pattern: {
+      byOrderType: { "dine-in": 50, takeaway: 30, delivery: 20 },
+      peakDays: ["Monday", "Tuesday"],
+      peakHours: ["12:00–13:00"],
+    },
+    risk_flags: ["profit_risk", "demand_risk"],
   },
   {
     id: "d6",
@@ -132,9 +208,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 13200,
     weekly_profit: 10120,
     prep_time: 10,
-    classification: "star",
-    demand_pattern: "stable",
-    cannibalization: [],
+    station: "Fryer",
+    complexity: "low",
+    classification: "high-profit",
+    demand_trend: "stable",
+    peak_hour_concentration: 25,
+    prep_time_volatility: 6,
+    demand_spike_frequency: 0,
+    cannibalization_score: 0,
+    competing_dishes: [],
+    demand_pattern: {
+      byOrderType: { "dine-in": 65, takeaway: 20, delivery: 15 },
+      peakDays: ["Friday", "Saturday", "Sunday"],
+      peakHours: ["20:00–22:00"],
+    },
+    risk_flags: [],
   },
   {
     id: "d7",
@@ -148,9 +236,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 13600,
     weekly_profit: 7600,
     prep_time: 30,
-    classification: "puzzle",
-    demand_pattern: "declining",
-    cannibalization: ["Truffle Risotto"],
+    station: "Stovetop",
+    complexity: "medium",
+    classification: "low-impact-filler",
+    demand_trend: "declining",
+    peak_hour_concentration: 50,
+    prep_time_volatility: 22,
+    demand_spike_frequency: 1,
+    cannibalization_score: 58,
+    competing_dishes: [{ dishId: "d4", dishName: "Truffle Risotto", overlapScore: 58 }],
+    demand_pattern: {
+      byOrderType: { "dine-in": 60, takeaway: 20, delivery: 20 },
+      peakDays: ["Wednesday", "Thursday"],
+      peakHours: ["19:00–20:00"],
+    },
+    risk_flags: ["demand_risk", "cannibalization_risk"],
   },
   {
     id: "d8",
@@ -164,9 +264,21 @@ export const dishes: Dish[] = [
     weekly_revenue: 16800,
     weekly_profit: 13650,
     prep_time: 5,
-    classification: "plow_horse",
-    demand_pattern: "stable",
-    cannibalization: [],
+    station: "Beverage",
+    complexity: "low",
+    classification: "high-profit",
+    demand_trend: "stable",
+    peak_hour_concentration: 35,
+    prep_time_volatility: 4,
+    demand_spike_frequency: 0,
+    cannibalization_score: 0,
+    competing_dishes: [],
+    demand_pattern: {
+      byOrderType: { "dine-in": 75, takeaway: 15, delivery: 10 },
+      peakDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      peakHours: ["10:00–11:00", "15:00–16:00"],
+    },
+    risk_flags: [],
   },
 ];
 
@@ -201,7 +313,7 @@ export const recommendations: Recommendation[] = [
     dish_name: "Paneer Tikka",
     type: "promote",
     title: "Feature as weekly special",
-    reasoning: "Paneer Tikka shows a growing demand pattern with strong 66% margins. Featuring it prominently could increase weekly orders by 15–20%, adding ~₹4,000 in weekly revenue with minimal kitchen stress increase.",
+    reasoning: "Paneer Tikka shows a rising demand trend with strong 66% margins. Featuring it prominently could increase weekly orders by 15–20%, adding ~₹4,000 in weekly revenue with minimal kitchen stress increase.",
     expected_revenue_impact: 4000,
     expected_profit_impact: 2640,
     expected_stress_impact: 5,

@@ -1,18 +1,21 @@
 import { cn } from "@/lib/utils";
+import type { DishClassification } from "@/data/mockData";
+
+type BadgeVariant = DishClassification | "opportunity" | "warning" | "neutral" | "info";
 
 interface StatusBadgeProps {
-  variant: "star" | "puzzle" | "plow_horse" | "dog" | "warning" | "opportunity" | "info" | "neutral";
+  variant: BadgeVariant;
   children: React.ReactNode;
   className?: string;
 }
 
-const variantStyles: Record<StatusBadgeProps["variant"], string> = {
-  star: "bg-opportunity/15 text-opportunity border-opportunity/30",
-  puzzle: "bg-info/15 text-info border-info/30",
-  plow_horse: "bg-foreground/10 text-foreground border-foreground/20",
-  dog: "bg-warning/15 text-warning border-warning/30",
-  warning: "bg-warning/15 text-warning border-warning/30",
+const variantStyles: Record<BadgeVariant, string> = {
+  "high-profit": "bg-opportunity/15 text-opportunity border-opportunity/30",
+  "hidden-loss": "bg-warning/15 text-warning border-warning/30",
+  "kitchen-disruptor": "bg-info/15 text-info border-info/30",
+  "low-impact-filler": "bg-secondary text-secondary-foreground border-border",
   opportunity: "bg-opportunity/15 text-opportunity border-opportunity/30",
+  warning: "bg-warning/15 text-warning border-warning/30",
   info: "bg-info/15 text-info border-info/30",
   neutral: "bg-secondary text-secondary-foreground border-border",
 };
@@ -23,14 +26,14 @@ const StatusBadge = ({ variant, children, className }: StatusBadgeProps) => (
   </span>
 );
 
-export const classificationLabel = (c: string) => {
-  const map: Record<string, string> = {
-    star: "Star",
-    puzzle: "Puzzle",
-    plow_horse: "Plow Horse",
-    dog: "Dog",
-  };
-  return map[c] ?? c;
+export const classificationLabel = (c: DishClassification): string => {
+  switch (c) {
+    case "high-profit": return "High Profit";
+    case "hidden-loss": return "Hidden Loss";
+    case "kitchen-disruptor": return "Kitchen Disruptor";
+    case "low-impact-filler": return "Low-Impact Filler";
+    default: return c;
+  }
 };
 
 export default StatusBadge;

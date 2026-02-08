@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { dishes, recommendations } from "@/data/mockData";
+import { useDishProfile } from "@/hooks/useDishProfile";
 import IndicatorBar from "@/components/shared/IndicatorBar";
 import StatusBadge, { classificationLabel } from "@/components/shared/StatusBadge";
 import { AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const riskLabel = (flag: string) => {
   switch (flag) {
@@ -14,10 +15,28 @@ const riskLabel = (flag: string) => {
   }
 };
 
+const DishProfileSkeleton = () => (
+  <div className="space-y-8 max-w-4xl">
+    <div>
+      <Skeleton className="h-4 w-16 mb-4" />
+      <Skeleton className="h-8 w-64 mb-2" />
+      <Skeleton className="h-4 w-48" />
+    </div>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-48 rounded-lg" />)}
+    </div>
+  </div>
+);
+
 const DishProfile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const dish = dishes.find((d) => d.id === id);
+  const { dish, recommendations: relatedRecs, isLoading } = useDishProfile(id);
+
+  if (isLoading) return <DishProfileSkeleton />;
 
   if (!dish) {
     return (
@@ -26,8 +45,6 @@ const DishProfile = () => {
       </div>
     );
   }
-
-  const relatedRecs = recommendations.filter((r) => r.dish_id === dish.id);
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -41,8 +58,8 @@ const DishProfile = () => {
         </button>
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-semibold text-foreground">{dish.name}</h1>
-          <StatusBadge variant={dish.classification}>
-            {classificationLabel(dish.classification)}
+          <StatusBadge variant={dish.classification as any}>
+            {classificationLabel(dish.classification as any)}
           </StatusBadge>
         </div>
         <p className="text-sm text-muted-foreground mt-1">{dish.category} · Last 4 weeks analysis</p>

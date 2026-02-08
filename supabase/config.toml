@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.compute-recommendations]
 verify_jwt = false
+
+[functions.compute-outcomes]
+verify_jwt = false

@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      dish_profiles: {
+        Row: {
+          analysis_period_end: string | null
+          analysis_period_start: string | null
+          cannibalization_score: number | null
+          classification: string
+          competing_dishes: Json | null
+          computed_at: string | null
+          created_at: string
+          demand_pattern: Json | null
+          demand_spike_frequency: number | null
+          demand_trend: string | null
+          id: string
+          menu_item_id: string
+          peak_hour_concentration: number | null
+          prep_time_volatility: number | null
+          profit_contribution: number | null
+          restaurant_id: string
+          risk_flags: Json | null
+          stress_score: number | null
+          true_margin: number | null
+          updated_at: string
+          volume_pressure: number | null
+          weekly_orders: number | null
+          weekly_profit: number | null
+          weekly_revenue: number | null
+        }
+        Insert: {
+          analysis_period_end?: string | null
+          analysis_period_start?: string | null
+          cannibalization_score?: number | null
+          classification?: string
+          competing_dishes?: Json | null
+          computed_at?: string | null
+          created_at?: string
+          demand_pattern?: Json | null
+          demand_spike_frequency?: number | null
+          demand_trend?: string | null
+          id?: string
+          menu_item_id: string
+          peak_hour_concentration?: number | null
+          prep_time_volatility?: number | null
+          profit_contribution?: number | null
+          restaurant_id: string
+          risk_flags?: Json | null
+          stress_score?: number | null
+          true_margin?: number | null
+          updated_at?: string
+          volume_pressure?: number | null
+          weekly_orders?: number | null
+          weekly_profit?: number | null
+          weekly_revenue?: number | null
+        }
+        Update: {
+          analysis_period_end?: string | null
+          analysis_period_start?: string | null
+          cannibalization_score?: number | null
+          classification?: string
+          competing_dishes?: Json | null
+          computed_at?: string | null
+          created_at?: string
+          demand_pattern?: Json | null
+          demand_spike_frequency?: number | null
+          demand_trend?: string | null
+          id?: string
+          menu_item_id?: string
+          peak_hour_concentration?: number | null
+          prep_time_volatility?: number | null
+          profit_contribution?: number | null
+          restaurant_id?: string
+          risk_flags?: Json | null
+          stress_score?: number | null
+          true_margin?: number | null
+          updated_at?: string
+          volume_pressure?: number | null
+          weekly_orders?: number | null
+          weekly_profit?: number | null
+          weekly_revenue?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dish_profiles_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: true
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dish_profiles_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingestion_logs: {
         Row: {
           completed_at: string | null
@@ -54,6 +150,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ingestion_logs_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_items: {
+        Row: {
+          category: string
+          complexity: string
+          created_at: string
+          external_pos_id: string | null
+          food_cost: number
+          id: string
+          is_active: boolean
+          is_combo: boolean
+          name: string
+          prep_time_minutes: number
+          restaurant_id: string
+          selling_price: number
+          station: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          complexity?: string
+          created_at?: string
+          external_pos_id?: string | null
+          food_cost?: number
+          id?: string
+          is_active?: boolean
+          is_combo?: boolean
+          name: string
+          prep_time_minutes?: number
+          restaurant_id: string
+          selling_price?: number
+          station?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          complexity?: string
+          created_at?: string
+          external_pos_id?: string | null
+          food_cost?: number
+          id?: string
+          is_active?: boolean
+          is_combo?: boolean
+          name?: string
+          prep_time_minutes?: number
+          restaurant_id?: string
+          selling_price?: number
+          station?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_items_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"

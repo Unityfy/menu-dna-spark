@@ -11,6 +11,7 @@ export interface MenuListItem {
   stress_score: number;
   weekly_orders: number;
   weekly_revenue: number;
+  demand_trend: string;
 }
 
 export function useMenuList() {
@@ -21,7 +22,7 @@ export function useMenuList() {
     queryFn: async (): Promise<{ dishes: MenuListItem[]; categories: string[] }> => {
       const [itemsRes, profilesRes] = await Promise.all([
         supabase.from("menu_items").select("id, name, category").eq("is_active", true),
-        supabase.from("dish_profiles").select("menu_item_id, classification, true_margin, stress_score, weekly_orders, weekly_revenue"),
+        supabase.from("dish_profiles").select("menu_item_id, classification, true_margin, stress_score, weekly_orders, weekly_revenue, demand_trend"),
       ]);
 
       if (itemsRes.error) throw itemsRes.error;
@@ -42,6 +43,7 @@ export function useMenuList() {
           stress_score: profile?.stress_score ?? 0,
           weekly_orders: profile?.weekly_orders ?? 0,
           weekly_revenue: profile?.weekly_revenue ?? 0,
+          demand_trend: profile?.demand_trend ?? "stable",
         };
       });
 

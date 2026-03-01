@@ -1,48 +1,81 @@
-import { useState } from "react";
 import { useRecommendations, useUpdateRecommendationStatus, type Recommendation } from "@/hooks/useRecommendations";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { useNavigate } from "react-router-dom";
 
-const filterTabs = ["All", "Pending", "Approved", "Ignored"] as const;
+// Fallback mock recommendations for exploration
+import { recommendations as mockRecs } from "@/data/mockData";
 
 const typeLabels: Record<string, string> = {
-  price: "Price Optimization",
-  remove: "Dish Removal",
-  promote: "Promotion",
-  reformulate: "Portion / Reformulation",
+  price: "Price Adjustment",
+  remove: "Menu Removal",
+  promote: "Feature Opportunity",
+  reformulate: "Portion Adjustment",
   bundle: "Bundle / Differentiate",
   availability: "Time-Based Availability",
   channel: "Channel Restriction",
+};
+
+const classificationBadge = (type: string) => {
+  if (["price", "reformulate", "channel", "availability"].includes(type)) {
+    return { variant: "warning" as const, icon: "◆", label: "Disruptor" };
+  }
+  if (["promote", "bundle"].includes(type)) {
+    return { variant: "opportunity" as const, icon: "★", label: "Star" };
+  }
+  return { variant: "neutral" as const, icon: "—", label: "Review" };
 };
 
 const ActionPlan = () => {
   const navigate = useNavigate();
   const { data: recs = [], isLoading } = useRecommendations();
   const updateStatus = useUpdateRecommendationStatus();
-  const [activeFilter, setActiveFilter] = useState<(typeof filterTabs)[number]>("All");
 
-  const filtered = activeFilter === "All" ? recs : recs.filter((r) => r.status === activeFilter.toLowerCase());
-  const pendingCount = recs.filter((r) => r.status === "pending").length;
-  const weekLabel = recs.length > 0 ? new Date(recs[0].week_start).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "";
+  // Use real data if available, otherwise mock
+  const displayRecs: Recommendation[] = recs.length > 0
+    ? recs
+    : mockRecs.map((r) => ({
+        id: r.id,
+        restaurant_id: "",
+        snapshot_id: null,
+        menu_item_id: r.dish_id,
+        dish_name: r.dish_name,
+        type: r.type,
+        title: r.title,
+        reasoning: r.reasoning,
+        expected_revenue_impact: r.expected_revenue_impact,
+        expected_profit_impact: r.expected_profit_impact,
+        expected_stress_impact: r.expected_stress_impact,
+        status: r.status,
+        week_start: new Date().toISOString(),
+        priority: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+
+  const pendingRecs = displayRecs.filter((r) => r.status === "pending");
+  const approvedRecs = displayRecs.filter((r) => r.status === "approved");
+
+  const totalProfitImpact = pendingRecs.reduce((sum, r) => sum + r.expected_profit_impact, 0);
+  const totalRevenue = displayRecs.reduce((sum, r) => sum + Math.abs(r.expected_revenue_impact), 0);
+  const profitImpactPct = totalRevenue > 0 ? ((totalProfitImpact / totalRevenue) * 100).toFixed(1) : "0";
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Weekly Action Plan</h1>
-          <p className="text-sm text-muted-foreground mt-1">Loading recommendations…</p>
-        </div>
-        <div className="space-y-4">
+      <div className="space-y-6">
+        <div className="h-8 w-48 rounded bg-secondary animate-pulse" />
+        <div className="h-6 w-96 rounded bg-secondary animate-pulse" />
+        <div className="grid grid-cols-3 gap-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="rounded-lg border border-border bg-card p-6 h-40 animate-pulse" />
+            <div key={i} className="rounded-lg border border-border bg-card p-6 h-24 animate-pulse" />
           ))}
         </div>
       </div>
     );
   }
 
-  if (recs.length === 0) {
+  if (displayRecs.length === 0) {
     return (
       <EmptyState
         title="No recommendations yet"
@@ -53,105 +86,148 @@ const ActionPlan = () => {
     );
   }
 
+  const formatImpact = (value: number, prefix: string = "₹") => {
+    if (value === 0) return "No change";
+    const sign = value > 0 ? "+" : "";
+    if (prefix === "₹") {
+      return `${sign}${prefix}${Math.abs(value).toLocaleString()}/wk`;
+    }
+    return `${sign}${value}%`;
+  };
+
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Weekly Action Plan</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {pendingCount} pending · Week of {weekLabel}
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">
+          Week 8 · {displayRecs.length} Recommendations
+        </p>
+        <h1 className="text-3xl font-bold text-foreground font-[var(--font-display)]">
+          Weekly Action Plan
+        </h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          Review, approve, or dismiss each recommendation below
         </p>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2">
-        {filterTabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveFilter(tab)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-200",
-              activeFilter === tab
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* KPI Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="rounded-lg border border-border bg-card p-5">
+          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            Pending
+          </span>
+          <p className="text-3xl font-semibold text-foreground mt-2 font-[var(--font-display)]">
+            {pendingRecs.length}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-5">
+          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            Approved
+          </span>
+          <p className="text-3xl font-semibold text-foreground mt-2 font-[var(--font-display)]">
+            {approvedRecs.length}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-5">
+          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            Est. Profit Impact
+          </span>
+          <p className="text-3xl font-semibold text-opportunity mt-2 font-[var(--font-display)]">
+            +{profitImpactPct}%
+          </p>
+        </div>
       </div>
 
-      {/* Recommendation cards */}
+      {/* Recommendation Cards */}
       <div className="space-y-4">
-        {filtered.map((rec) => (
-          <div key={rec.id} className="rounded-lg border border-border bg-card p-6 space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
+        {displayRecs.map((rec) => {
+          const badge = classificationBadge(rec.type);
+          const isPending = rec.status === "pending";
+
+          return (
+            <div
+              key={rec.id}
+              className={cn(
+                "rounded-lg border border-border bg-card p-6 space-y-4",
+                !isPending && "opacity-60"
+              )}
+            >
+              {/* Dish name + badge */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground font-[var(--font-display)]">
+                    {rec.dish_name}
+                  </h3>
+                  <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
                     {typeLabels[rec.type] || rec.type}
                   </span>
                 </div>
-                <h3 className="text-sm font-medium text-foreground">{rec.title}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{rec.dish_name}</p>
+                <StatusBadge variant={badge.variant}>
+                  {badge.icon} {badge.label}
+                </StatusBadge>
               </div>
-              {rec.status !== "pending" && (
+
+              {/* Reasoning */}
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {rec.reasoning}
+              </p>
+
+              {/* Inline impact metrics */}
+              <div className="flex items-center gap-6 text-sm">
+                <span className="text-muted-foreground">
+                  Revenue:{" "}
+                  <span className={rec.expected_revenue_impact >= 0 ? "text-opportunity font-medium" : "text-warning font-medium"}>
+                    {formatImpact(rec.expected_revenue_impact)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  Profit:{" "}
+                  <span className={rec.expected_profit_impact >= 0 ? "text-opportunity font-medium" : "text-warning font-medium"}>
+                    {formatImpact(rec.expected_profit_impact)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  Kitchen:{" "}
+                  <span className={rec.expected_stress_impact <= 0 ? "text-foreground font-medium" : "text-warning font-medium"}>
+                    {rec.expected_stress_impact === 0
+                      ? "No change"
+                      : `${rec.expected_stress_impact > 0 ? "+" : ""}${rec.expected_stress_impact}% load`}
+                  </span>
+                </span>
+              </div>
+
+              {/* Actions */}
+              {isPending && (
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => updateStatus.mutate({ id: rec.id, status: "approved" })}
+                    disabled={updateStatus.isPending}
+                    className="rounded-md border border-opportunity/40 bg-opportunity/10 px-5 py-2 text-sm font-medium text-opportunity hover:bg-opportunity/20 transition-colors disabled:opacity-50"
+                  >
+                    ✓ Approve
+                  </button>
+                  <button
+                    onClick={() => updateStatus.mutate({ id: rec.id, status: "ignored" })}
+                    disabled={updateStatus.isPending}
+                    className="rounded-md border border-border bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {/* Status indicator for acted-on recs */}
+              {!isPending && (
                 <span className={cn(
-                  "text-xs font-medium px-2 py-0.5 rounded",
+                  "inline-flex items-center text-xs font-medium px-2 py-0.5 rounded",
                   rec.status === "approved" ? "bg-opportunity/15 text-opportunity" : "bg-secondary text-muted-foreground"
                 )}>
-                  {rec.status === "approved" ? "Approved" : "Ignored"}
+                  {rec.status === "approved" ? "✓ Approved" : "Dismissed"}
                 </span>
               )}
             </div>
-
-            {/* Reasoning */}
-            <div className="rounded-md bg-secondary p-4 border-l-[3px] border-neutral">
-              <p className="text-xs text-secondary-foreground leading-relaxed">{rec.reasoning}</p>
-            </div>
-
-            {/* Impact grid */}
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-xs text-muted-foreground">Revenue</p>
-                <p className={cn("text-sm font-medium", rec.expected_revenue_impact >= 0 ? "text-opportunity" : "text-warning")}>
-                  {rec.expected_revenue_impact >= 0 ? "+" : ""}₹{rec.expected_revenue_impact.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Profit</p>
-                <p className={cn("text-sm font-medium", rec.expected_profit_impact >= 0 ? "text-opportunity" : "text-warning")}>
-                  {rec.expected_profit_impact >= 0 ? "+" : ""}₹{rec.expected_profit_impact.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Stress</p>
-                <p className={cn("text-sm font-medium", rec.expected_stress_impact <= 0 ? "text-opportunity" : "text-warning")}>
-                  {rec.expected_stress_impact >= 0 ? "+" : ""}{rec.expected_stress_impact}%
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            {rec.status === "pending" && (
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => updateStatus.mutate({ id: rec.id, status: "ignored" })}
-                  disabled={updateStatus.isPending}
-                  className="rounded-md border border-border bg-secondary px-4 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
-                >
-                  Ignore
-                </button>
-                <button
-                  onClick={() => updateStatus.mutate({ id: rec.id, status: "approved" })}
-                  disabled={updateStatus.isPending}
-                  className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  Approve
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -9,9 +9,6 @@ import CategoryPerformance from "@/components/dashboard/CategoryPerformance";
 import TopPerformers from "@/components/dashboard/TopPerformers";
 import KitchenStressIndicators from "@/components/dashboard/KitchenStressIndicators";
 
-// Fallback mock data when no snapshot exists yet
-import { dishes, weeklySnapshots } from "@/data/mockData";
-
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -31,68 +28,48 @@ const Dashboard = () => {
     );
   }
 
-  // Use snapshot data if available, otherwise fall back to mock data for exploration
+  if (!snapshot) {
+    return (
+      <EmptyState
+        title="No data yet"
+        description="Complete onboarding and upload sales data to generate your dashboard."
+        actionLabel="Start Onboarding"
+        onAction={() => navigate("/onboarding")}
+      />
+    );
+  }
+
   const pendingRecs = recs.filter((r) => r.status === "pending");
 
-  const healthScore = snapshot?.health_score ?? 74;
-  const healthDelta = snapshot?.health_delta ?? 3;
-  const totalRevenue = snapshot?.total_revenue ?? 175080;
-  const avgMargin = snapshot?.avg_margin ?? 66;
-  const totalDishes = snapshot?.total_dishes ?? dishes.length;
+  const healthScore = snapshot.health_score;
+  const healthDelta = snapshot.health_delta;
+  const totalRevenue = snapshot.total_revenue;
+  const avgMargin = snapshot.avg_margin;
+  const totalDishes = snapshot.total_dishes;
 
-  const riskItemCount = snapshot
-    ? Object.values(snapshot.risk_summary).reduce((a, b) => a + b, 0)
-    : dishes.filter((d) => d.risk_flags.length > 0).length;
+  const riskItemCount = Object.values(snapshot.risk_summary as Record<string, number>).reduce((a, b) => a + b, 0);
 
-  // Build top performers from snapshot or mock
-  const topPerformers = snapshot?.top_profit_contributors?.length
-    ? snapshot.top_profit_contributors.slice(0, 5).map((d) => ({
-        id: d.menu_item_id,
-        name: d.name,
-        category: d.category,
-        score: Math.round(d.true_margin),
-        unitsSold: d.weekly_orders,
-      }))
-    : [...dishes]
-        .sort((a, b) => b.margin - a.margin)
-        .slice(0, 5)
-        .map((d) => ({
-          id: d.id,
-          name: d.name,
-          category: d.category,
-          score: Math.round(d.margin),
-          unitsSold: d.weekly_orders,
-        }));
+  const topPerformers = (snapshot.top_profit_contributors as any[])?.slice(0, 5).map((d: any) => ({
+    id: d.menu_item_id,
+    name: d.name,
+    category: d.category,
+    score: Math.round(d.true_margin),
+    unitsSold: d.weekly_orders,
+  })) || [];
 
-  // Build stress indicators from snapshot or mock
-  const stressItems = snapshot?.highest_stress_contributors?.length
-    ? snapshot.highest_stress_contributors
-        .filter((d) => d.stress_score > 30)
-        .slice(0, 5)
-        .map((d) => ({ id: d.menu_item_id, name: d.name, stressScore: Math.round(d.stress_score) }))
-    : [...dishes]
-        .sort((a, b) => b.stress_score - a.stress_score)
-        .slice(0, 5)
-        .map((d) => ({ id: d.id, name: d.name, stressScore: d.stress_score }));
+  const stressItems = (snapshot.highest_stress_contributors as any[])
+    ?.filter((d: any) => d.stress_score > 30)
+    .slice(0, 5)
+    .map((d: any) => ({ id: d.menu_item_id, name: d.name, stressScore: Math.round(d.stress_score) })) || [];
 
-  // Category performance from snapshot classification or mock
-  const categoryPerformance = snapshot?.classification_breakdown
-    ? Object.entries(snapshot.classification_breakdown).map(([name, count]) => ({
+  const categoryPerformance = snapshot.classification_breakdown
+    ? Object.entries(snapshot.classification_breakdown as Record<string, number>).map(([name, count]) => ({
         name,
         score: Math.round((count / totalDishes) * 100),
       }))
-    : [
-        { name: "Mains", score: 74 },
-        { name: "Starters", score: 58 },
-        { name: "Desserts", score: 82 },
-        { name: "Beverages", score: 65 },
-      ];
+    : [];
 
-  // Weekly trend data
-  const weekTrendData = weeklySnapshots.map((w, i) => ({
-    label: `W${i + 1}`,
-    score: w.health_score,
-  }));
+  const weekTrendData: { label: string; score: number }[] = [];
 
   return (
     <div className="space-y-6">

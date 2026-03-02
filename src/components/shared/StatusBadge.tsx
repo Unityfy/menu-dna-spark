@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import type { DishClassification } from "@/data/mockData";
+
+export type DishClassification = "high-profit" | "hidden-loss" | "kitchen-disruptor" | "low-impact-filler";
 
 type BadgeVariant = DishClassification | "opportunity" | "warning" | "neutral" | "info";
 

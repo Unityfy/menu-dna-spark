@@ -6,8 +6,6 @@ import EmptyState from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// Fallback mock data
-import { dishes as mockDishes, categories as mockCategories } from "@/data/mockData";
 
 const classificationConfig: Record<string, { icon: string; label: string; variant: "warning" | "opportunity" | "info" | "neutral" }> = {
   "high-profit": { icon: "★", label: "Star", variant: "opportunity" },
@@ -32,24 +30,8 @@ const MenuList = () => {
   const navigate = useNavigate();
   const { data, isLoading } = useMenuList();
 
-  // Use real data or fallback to mock
-  const dishes = data?.dishes?.length
-    ? data.dishes
-    : mockDishes.map((d) => ({
-        id: d.id,
-        name: d.name,
-        category: d.category,
-        classification: d.classification,
-        margin: d.margin,
-        stress_score: d.stress_score,
-        weekly_orders: d.weekly_orders,
-        weekly_revenue: d.weekly_revenue,
-        demand_trend: d.demand_trend,
-      }));
-
-  const categories = data?.categories?.length
-    ? data.categories
-    : mockCategories;
+  const dishes = data?.dishes || [];
+  const categories = data?.categories || ["All"];
 
   if (isLoading) {
     return (

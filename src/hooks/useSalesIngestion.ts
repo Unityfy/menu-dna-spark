@@ -64,11 +64,6 @@ export const useSalesIngestion = () => {
   };
 
   const uploadCSV = async (file: File) => {
-    if (!session?.access_token) {
-      toast.error("Please log in to upload data");
-      return;
-    }
-
     setUploading(true);
     setResult(null);
 
@@ -105,11 +100,6 @@ export const useSalesIngestion = () => {
   };
 
   const ingestFromPOS = async (records: SalesRecord[]) => {
-    if (!session?.access_token) {
-      toast.error("Please log in first");
-      return;
-    }
-
     setUploading(true);
     setResult(null);
 

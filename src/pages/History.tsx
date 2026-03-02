@@ -3,23 +3,12 @@ import { useSnapshotHistory } from "@/hooks/useMenuIntelligence";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
 
-// Fallback mock data
-import { weeklySnapshots as mockSnapshots } from "@/data/mockData";
-
 type MetricTab = "health" | "profit";
-
-const mockDecisions = [
-  { week: "W7", title: "Raised Dal Makhani price +₹20", impact: "+₹3.2k profit" },
-  { week: "W6", title: "Restricted Biryani – delivery PM", impact: "-15% kitchen stress" },
-  { week: "W5", title: "Featured Gulab Jamun on menu", impact: "+22 orders/week" },
-  { week: "W4", title: "Removed Paneer 65", impact: "+₹1.1k margin" },
-];
 
 const HistoryPage = () => {
   const { data: snapshots, isLoading } = useSnapshotHistory();
   const [activeTab, setActiveTab] = useState<MetricTab>("health");
 
-  // Use real or mock data
   const weeks = snapshots?.length
     ? snapshots.map((s, i) => ({
         label: `W${snapshots.length - i}`,
@@ -29,29 +18,7 @@ const HistoryPage = () => {
         margin: s.avg_margin,
         stress: s.avg_stress,
       })).reverse()
-    : mockSnapshots.map((s, i) => ({
-        label: `W${i + 1}`,
-        healthScore: s.health_score,
-        profit: s.total_profit,
-        revenue: s.total_revenue,
-        margin: 0,
-        stress: 0,
-      }));
-
-  // Extend mock to 8 weeks if needed
-  while (weeks.length < 8) {
-    const base = weeks[0];
-    weeks.unshift({
-      label: `W${weeks.length + 1}`,
-      healthScore: base.healthScore - Math.floor(Math.random() * 5 + 1),
-      profit: base.profit - Math.floor(Math.random() * 5000),
-      revenue: base.revenue - Math.floor(Math.random() * 5000),
-      margin: base.margin,
-      stress: base.stress,
-    });
-    // Fix labels
-    weeks.forEach((w, i) => (w.label = `W${i + 1}`));
-  }
+    : [];
 
   const current = weeks[weeks.length - 1];
   const first = weeks[0];
@@ -221,22 +188,7 @@ const HistoryPage = () => {
           <h3 className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium mb-5">
             Decisions Made
           </h3>
-          <div className="space-y-0">
-            {mockDecisions.map((d, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-4 py-4 border-b border-border/50 last:border-0"
-              >
-                <span className="text-xs text-muted-foreground font-medium bg-secondary px-2 py-1 rounded mt-0.5">
-                  {d.week}
-                </span>
-                <div>
-                  <p className="text-sm text-foreground font-medium">{d.title}</p>
-                  <p className="text-xs text-opportunity mt-0.5">{d.impact}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm text-muted-foreground">No decisions recorded yet.</p>
         </div>
 
         {/* Before / After Comparison */}

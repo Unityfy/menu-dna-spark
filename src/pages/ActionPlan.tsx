@@ -4,8 +4,6 @@ import EmptyState from "@/components/shared/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { useNavigate } from "react-router-dom";
 
-// Fallback mock recommendations for exploration
-import { recommendations as mockRecs } from "@/data/mockData";
 
 const typeLabels: Record<string, string> = {
   price: "Price Adjustment",
@@ -32,27 +30,7 @@ const ActionPlan = () => {
   const { data: recs = [], isLoading } = useRecommendations();
   const updateStatus = useUpdateRecommendationStatus();
 
-  // Use real data if available, otherwise mock
-  const displayRecs: Recommendation[] = recs.length > 0
-    ? recs
-    : mockRecs.map((r) => ({
-        id: r.id,
-        restaurant_id: "",
-        snapshot_id: null,
-        menu_item_id: r.dish_id,
-        dish_name: r.dish_name,
-        type: r.type,
-        title: r.title,
-        reasoning: r.reasoning,
-        expected_revenue_impact: r.expected_revenue_impact,
-        expected_profit_impact: r.expected_profit_impact,
-        expected_stress_impact: r.expected_stress_impact,
-        status: r.status,
-        week_start: new Date().toISOString(),
-        priority: 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }));
+  const displayRecs: Recommendation[] = recs;
 
   const pendingRecs = displayRecs.filter((r) => r.status === "pending");
   const approvedRecs = displayRecs.filter((r) => r.status === "approved");

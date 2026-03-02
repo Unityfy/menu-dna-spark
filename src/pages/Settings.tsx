@@ -51,12 +51,21 @@ interface UploadedFile {
   message?: string;
 }
 
+const PIPELINE_STEPS: { key: string; label: string }[] = [
+  { key: "uploading", label: "Uploading sales data" },
+  { key: "computing-dna", label: "Computing Dish DNA" },
+  { key: "computing-intelligence", label: "Building Menu Intelligence" },
+  { key: "computing-recommendations", label: "Generating Recommendations" },
+];
+
 const DataUploadSection = () => {
-  const { uploadCSV, uploading } = useSalesIngestion();
+  const { uploadCSV, uploading, pipelineStep, pipelineError, resetPipeline } = useSalesIngestion();
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isPipelineRunning = !["idle", "done", "error"].includes(pipelineStep);
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -106,7 +115,7 @@ const DataUploadSection = () => {
         await uploadCSV(entry.file);
         setUploadedFiles((prev) =>
           prev.map((f, i) =>
-            i === index ? { ...f, status: "success" as const, message: "Imported successfully" } : f
+            i === index ? { ...f, status: "success" as const, message: "Imported & analyzed" } : f
           )
         );
       } catch {
@@ -117,7 +126,6 @@ const DataUploadSection = () => {
         );
       }
     } else {
-      // For PDF/XLS — mark as received (processing would need a dedicated edge function)
       setTimeout(() => {
         setUploadedFiles((prev) =>
           prev.map((f, i) =>
@@ -153,13 +161,64 @@ const DataUploadSection = () => {
 
   return (
     <div className="space-y-4">
+      {/* Pipeline Progress */}
+      {(isPipelineRunning || pipelineStep === "done" || pipelineStep === "error") && (
+        <div className="rounded-md border border-border bg-secondary/50 p-4 space-y-3">
+          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+            Analysis Pipeline
+          </p>
+          <div className="space-y-2">
+            {PIPELINE_STEPS.map((step, i) => {
+              const stepIndex = PIPELINE_STEPS.findIndex((s) => s.key === pipelineStep);
+              const thisIndex = i;
+              const isActive = step.key === pipelineStep;
+              const isDone = pipelineStep === "done" || thisIndex < stepIndex;
+              const isError = pipelineStep === "error" && thisIndex === stepIndex;
+
+              return (
+                <div key={step.key} className="flex items-center gap-3">
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${
+                    isDone ? "bg-opportunity" : isActive ? "bg-foreground animate-pulse" : isError ? "bg-warning" : "bg-secondary"
+                  }`} />
+                  <span className={`text-sm ${
+                    isDone ? "text-opportunity" : isActive ? "text-foreground" : isError ? "text-warning" : "text-muted-foreground/50"
+                  }`}>
+                    {step.label}
+                    {isDone && " ✓"}
+                    {isActive && "…"}
+                    {isError && " ✗"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {pipelineStep === "done" && (
+            <div className="flex items-center justify-between pt-1">
+              <p className="text-xs text-opportunity font-medium">✓ All analysis complete — dashboard updated</p>
+              <button onClick={resetPipeline} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Dismiss
+              </button>
+            </div>
+          )}
+          {pipelineStep === "error" && pipelineError && (
+            <div className="flex items-center justify-between pt-1">
+              <p className="text-xs text-warning">{pipelineError}</p>
+              <button onClick={resetPipeline} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Dismiss
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Platform selector */}
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground">POS Platform / Source</label>
         <select
           value={selectedPlatform}
           onChange={(e) => setSelectedPlatform(e.target.value)}
-          className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+          disabled={isPipelineRunning}
+          className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors disabled:opacity-50"
         >
           <option value="">Select platform…</option>
           {POS_PLATFORMS.map((p) => (
@@ -174,19 +233,20 @@ const DataUploadSection = () => {
       <div
         onDragOver={(e) => {
           e.preventDefault();
-          setDragOver(true);
+          if (!isPipelineRunning) setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          handleFiles(e.dataTransfer.files);
+          if (!isPipelineRunning) handleFiles(e.dataTransfer.files);
         }}
-        onClick={() => fileInputRef.current?.click()}
-        className={`rounded-md border-2 border-dashed p-6 text-center cursor-pointer transition-all ${
+        onClick={() => !isPipelineRunning && fileInputRef.current?.click()}
+        className={`rounded-md border-2 border-dashed p-6 text-center transition-all ${
+          isPipelineRunning ? "opacity-50 cursor-not-allowed" :
           dragOver
-            ? "border-foreground/40 bg-foreground/5"
-            : "border-border bg-secondary/30 hover:border-muted-foreground/40"
+            ? "border-foreground/40 bg-foreground/5 cursor-pointer"
+            : "border-border bg-secondary/30 hover:border-muted-foreground/40 cursor-pointer"
         }`}
       >
         <Upload className="h-7 w-7 mx-auto text-muted-foreground mb-2" />
@@ -249,13 +309,13 @@ const DataUploadSection = () => {
             );
           })}
 
-          {pendingCount > 0 && (
+          {pendingCount > 0 && !isPipelineRunning && (
             <button
               onClick={handleUploadAll}
               disabled={uploading}
               className="w-full rounded-md border border-foreground/20 bg-foreground/5 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors disabled:opacity-50"
             >
-              {uploading ? "Uploading…" : `Upload ${pendingCount} file${pendingCount > 1 ? "s" : ""}`}
+              {uploading ? "Uploading…" : `Upload & Analyze ${pendingCount} file${pendingCount > 1 ? "s" : ""}`}
             </button>
           )}
         </div>

@@ -40,6 +40,8 @@ const HistoryPage = () => {
       />
     );
   }
+  const current = weeks[weeks.length - 1];
+  const first = weeks[0];
 
   const values = activeTab === "health" ? weeks.map((w) => w.healthScore) : weeks.map((w) => w.profit);
   const maxVal = Math.max(...values);

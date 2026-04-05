@@ -143,7 +143,48 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Batch insert in chunks of 500
+    // Auto-create menu_items from unique dish names
+    const uniqueDishes = new Map<string, number>();
+    for (const rec of imported) {
+      const key = rec.dish_name.toLowerCase();
+      if (!uniqueDishes.has(key)) {
+        uniqueDishes.set(key, rec.selling_price);
+      }
+    }
+
+    // Fetch existing menu items for this restaurant
+    const { data: existingItems } = await supabase
+      .from("menu_items")
+      .select("name")
+      .eq("restaurant_id", restaurantId);
+    const existingNames = new Set((existingItems || []).map((i: any) => i.name.toLowerCase()));
+
+    const newMenuItems = [];
+    for (const [name, price] of uniqueDishes) {
+      if (!existingNames.has(name)) {
+        // Use the original casing from the first occurrence
+        const originalName = imported.find(r => r.dish_name.toLowerCase() === name)!.dish_name;
+        newMenuItems.push({
+          restaurant_id: restaurantId,
+          name: originalName,
+          selling_price: price,
+          food_cost: Math.round(price * 0.35), // estimate 35% food cost
+          category: "Uncategorized",
+        });
+      }
+    }
+
+    if (newMenuItems.length > 0) {
+      const { error: menuErr } = await supabase.from("menu_items").insert(newMenuItems);
+      if (menuErr) {
+        console.error("Menu items insert error:", menuErr);
+        errors.push(`Menu items creation error: ${menuErr.message}`);
+      } else {
+        console.log(`Created ${newMenuItems.length} new menu items`);
+      }
+    }
+
+    // Batch insert sales in chunks of 500
     const CHUNK = 500;
     for (let i = 0; i < imported.length; i += CHUNK) {
       const chunk = imported.slice(i, i + CHUNK);

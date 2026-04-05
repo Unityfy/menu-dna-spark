@@ -20,9 +20,7 @@ const HistoryPage = () => {
       })).reverse()
     : [];
 
-  const current = weeks[weeks.length - 1];
-  const first = weeks[0];
-  const totalDelta = current.healthScore - first.healthScore;
+
 
   if (isLoading) {
     return (

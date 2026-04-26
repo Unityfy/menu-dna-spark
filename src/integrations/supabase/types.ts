@@ -157,6 +157,56 @@ export type Database = {
           },
         ]
       }
+      menu_data: {
+        Row: {
+          category: string | null
+          cost: number | null
+          created_at: string | null
+          id: string
+          name: string | null
+          price: number | null
+          quantity: number | null
+          sales: number | null
+          updated_at: string | null
+          uploaded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          cost?: number | null
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          price?: number | null
+          quantity?: number | null
+          sales?: number | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          cost?: number | null
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          price?: number | null
+          quantity?: number | null
+          sales?: number | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_data_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_intelligence_snapshots: {
         Row: {
           avg_margin: number
@@ -569,6 +619,41 @@ export type Database = {
           },
         ]
       }
+      uploads: {
+        Row: {
+          created_at: string | null
+          dish_count: number | null
+          file_name: string | null
+          id: string
+          uploaded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dish_count?: number | null
+          file_name?: string | null
+          id?: string
+          uploaded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dish_count?: number | null
+          file_name?: string | null
+          id?: string
+          uploaded_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uploads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -600,6 +685,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          email: string
+          id: string
+          plan: string | null
+          plan_activated_at: string | null
+          plan_status: string | null
+          razorpay_subscription_id: string | null
+          restaurant_name: string | null
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          email: string
+          id: string
+          plan?: string | null
+          plan_activated_at?: string | null
+          plan_status?: string | null
+          razorpay_subscription_id?: string | null
+          restaurant_name?: string | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          email?: string
+          id?: string
+          plan?: string | null
+          plan_activated_at?: string | null
+          plan_status?: string | null
+          razorpay_subscription_id?: string | null
+          restaurant_name?: string | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

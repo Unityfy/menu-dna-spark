@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+const STORAGE_KEY = "menu-dna-onboarding-progress";
 import StepRestaurant from "@/components/onboarding/StepRestaurant";
 import StepDataSource from "@/components/onboarding/StepDataSource";
 import StepMenuImport from "@/components/onboarding/StepMenuImport";
@@ -21,8 +23,24 @@ const STEPS = [
 
 const Onboarding = () => {
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<OnboardingData>(INITIAL_ONBOARDING_DATA);
+  const [data, setData] = useState<OnboardingData>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...INITIAL_ONBOARDING_DATA, ...parsed.data };
+      }
+    } catch {}
+    return INITIAL_ONBOARDING_DATA;
+  });
   const navigate = useNavigate();
+
+  // Auto-save progress
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, step }));
+    } catch {}
+  }, [data, step]);
 
   const update = (updates: Partial<OnboardingData>) => setData((prev) => ({ ...prev, ...updates }));
   const next = () => step < STEPS.length - 1 && setStep(step + 1);

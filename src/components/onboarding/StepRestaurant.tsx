@@ -1,4 +1,4 @@
-import { OnboardingData } from "./types";
+import { OnboardingData, CUISINE_TYPES } from "./types";
 
 interface Props {
   data: OnboardingData;
@@ -42,12 +42,16 @@ const StepRestaurant = ({ data, onChange }: Props) => (
     </Field>
 
     <Field label="Cuisine" helper="Helps us benchmark against similar restaurants">
-      <input
+      <select
         value={data.cuisine}
         onChange={(e) => onChange({ cuisine: e.target.value })}
-        placeholder="e.g., North Indian, Italian, Pan-Asian"
         className={inputClass}
-      />
+      >
+        <option value="">Choose cuisine…</option>
+        {CUISINE_TYPES.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
     </Field>
 
     <Field label="Location">

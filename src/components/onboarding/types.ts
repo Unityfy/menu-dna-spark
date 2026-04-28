@@ -78,11 +78,25 @@ export const MOCK_MENU_ITEMS: MenuItemEntry[] = [
 
 export const POS_SYSTEMS = [
   { value: "petpooja", label: "Petpooja" },
-  { value: "posist", label: "POSist" },
-  { value: "torqus", label: "Torqus" },
-  { value: "lightspeed", label: "Lightspeed" },
+  { value: "posist", label: "Posist" },
+  { value: "toast", label: "Toast" },
+  { value: "revel", label: "Revel" },
   { value: "square", label: "Square" },
   { value: "other", label: "Other" },
+];
+
+export const CUISINE_TYPES = [
+  "North Indian",
+  "South Indian",
+  "Pan-Asian",
+  "Italian",
+  "Continental",
+  "Chinese",
+  "Mexican",
+  "Mediterranean",
+  "Cafe / Bakery",
+  "Multi-cuisine",
+  "Other",
 ];
 
 export const STATIONS = ["Grill", "Tandoor", "Stovetop", "Cold / Assembly", "Oven", "Fryer", "Beverage"];

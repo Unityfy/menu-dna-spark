@@ -91,22 +91,26 @@ const Onboarding = () => {
           {step === 6 && <StepBaseline onComplete={() => navigate("/dashboard")} />}
         </div>
 
+        {/* Auto-save hint */}
+        <p className="text-center text-[10px] text-muted-foreground/60">Progress saved automatically</p>
+
         {/* Navigation */}
         {step < STEPS.length - 1 && (
-          <div className="flex justify-between">
-            <button
-              onClick={back}
-              disabled={step === 0}
-              className="rounded-md bg-secondary border border-border px-5 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-30"
-            >
-              Back
-            </button>
+          <div className={`flex ${step === 0 ? "justify-end" : "justify-between"}`}>
+            {step > 0 && (
+              <button
+                onClick={back}
+                className="rounded-md bg-secondary border border-border px-5 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                Back
+              </button>
+            )}
             <button
               onClick={next}
               disabled={!canContinue()}
               className="rounded-md bg-primary px-5 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40"
             >
-              Continue
+              Next
             </button>
           </div>
         )}

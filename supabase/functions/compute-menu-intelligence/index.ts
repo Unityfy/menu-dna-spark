@@ -32,22 +32,83 @@ interface MenuItem {
   category: string;
 }
 
+// Spec formula:
+//   Health = (0.40 × (avgMargin / 70%) + 0.30 × (1 - avgStress/100) + 0.30 × (1 - highRisk/total)) × 100
 function computeHealthScore(profiles: DishProfile[]): number {
   if (profiles.length === 0) return 0;
 
   const avgMargin = profiles.reduce((s, p) => s + (p.true_margin || 0), 0) / profiles.length;
   const avgStress = profiles.reduce((s, p) => s + (p.stress_score || 0), 0) / profiles.length;
-  const highProfitRatio = profiles.filter((p) => p.classification === "high-profit").length / profiles.length;
-  const hiddenLossRatio = profiles.filter((p) => p.classification === "hidden-loss").length / profiles.length;
-  const disruptorRatio = profiles.filter((p) => p.classification === "kitchen-disruptor").length / profiles.length;
+  const highRiskCount = profiles.filter(
+    (p) => p.classification === "hidden-loss" || p.classification === "kitchen-disruptor"
+  ).length;
 
-  // Health = weighted blend: margin health + low stress + good classification mix
-  const marginScore = Math.min(avgMargin / 80, 1) * 35; // 0-35
-  const stressScore = Math.max(1 - avgStress / 100, 0) * 25; // 0-25
-  const classScore = highProfitRatio * 25; // 0-25
-  const penaltyScore = (hiddenLossRatio + disruptorRatio) * 15; // 0-15 penalty
+  const profitabilityComponent = 0.40 * Math.min(Math.max(avgMargin / 70, 0), 1);
+  const efficiencyComponent = 0.30 * Math.max(1 - avgStress / 100, 0);
+  const balanceComponent = 0.30 * Math.max(1 - highRiskCount / profiles.length, 0);
 
-  return Math.round(Math.min(Math.max(marginScore + stressScore + classScore - penaltyScore, 0), 100));
+  return Math.round(Math.min((profitabilityComponent + efficiencyComponent + balanceComponent) * 100, 100));
+}
+
+interface CategoryPerf {
+  category: string;
+  dish_count: number;
+  total_revenue: number;
+  total_profit: number;
+  avg_margin: number;
+  avg_stress: number;
+  high_risk_count: number;
+  is_top: boolean;
+  is_underperforming: boolean;
+}
+
+function computeCategoryPerformance(
+  profiles: DishProfile[],
+  menuMap: Map<string, MenuItem>
+): CategoryPerf[] {
+  const buckets = new Map<string, DishProfile[]>();
+  for (const p of profiles) {
+    const cat = menuMap.get(p.menu_item_id)?.category || "Uncategorized";
+    if (!buckets.has(cat)) buckets.set(cat, []);
+    buckets.get(cat)!.push(p);
+  }
+
+  const rows: CategoryPerf[] = [];
+  for (const [cat, list] of buckets) {
+    const totalProfit = list.reduce((s, p) => s + (p.weekly_profit || 0), 0);
+    const totalRevenue = list.reduce((s, p) => s + (p.weekly_revenue || 0), 0);
+    const avgMargin = list.reduce((s, p) => s + (p.true_margin || 0), 0) / list.length;
+    const avgStress = list.reduce((s, p) => s + (p.stress_score || 0), 0) / list.length;
+    const highRisk = list.filter(
+      (p) => p.classification === "hidden-loss" || p.classification === "kitchen-disruptor"
+    ).length;
+    rows.push({
+      category: cat,
+      dish_count: list.length,
+      total_revenue: Math.round(totalRevenue),
+      total_profit: Math.round(totalProfit),
+      avg_margin: Math.round(avgMargin * 100) / 100,
+      avg_stress: Math.round(avgStress * 100) / 100,
+      high_risk_count: highRisk,
+      is_top: false,
+      is_underperforming: false,
+    });
+  }
+
+  if (rows.length > 0) {
+    const sortedByProfit = [...rows].sort((a, b) => b.total_profit - a.total_profit);
+    const topId = sortedByProfit[0].category;
+    const overallAvgMargin = rows.reduce((s, r) => s + r.avg_margin, 0) / rows.length;
+    for (const r of rows) {
+      if (r.category === topId) r.is_top = true;
+      // underperforming: margin meaningfully below menu average AND not the top
+      if (r.avg_margin < overallAvgMargin * 0.75 && r.category !== topId) {
+        r.is_underperforming = true;
+      }
+    }
+  }
+
+  return rows.sort((a, b) => b.total_profit - a.total_profit);
 }
 
 function buildDishSummary(profile: DishProfile, menuMap: Map<string, MenuItem>) {

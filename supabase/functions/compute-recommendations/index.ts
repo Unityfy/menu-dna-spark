@@ -23,6 +23,7 @@ interface DishProfile {
   classification: string;
   risk_flags: string[];
   demand_trend: string;
+  demand_pattern: any;
   cannibalization_score: number;
   peak_hour_concentration: number;
   prep_time_volatility: number;

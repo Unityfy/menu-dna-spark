@@ -37,7 +37,9 @@ interface MenuItem {
   selling_price: number;
   food_cost: number;
   prep_time_minutes: number;
+  complexity: string;
   is_active: boolean;
+  updated_at: string;
 }
 
 interface Recommendation {

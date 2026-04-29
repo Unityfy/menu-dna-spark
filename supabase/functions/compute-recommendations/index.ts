@@ -88,95 +88,163 @@ function generateRecommendations(
 
     const candidates: { type: string; rec: Omit<Recommendation, "priority"> }[] = [];
 
-    // 1. Price optimization: low margin, decent demand
-    if (p.true_margin < avgMargin * 0.75 && p.weekly_orders > 15) {
-      const suggestedIncrease = Math.round(item.selling_price * 0.08);
-      const expectedProfitGain = Math.round(suggestedIncrease * p.weekly_orders * 0.7);
+    const FOUR_WEEKS_MS = 28 * 24 * 60 * 60 * 1000;
+    const itemUpdatedAt = item.updated_at ? new Date(item.updated_at).getTime() : 0;
+    const noRecentPriceChange = itemUpdatedAt > 0 && (Date.now() - itemUpdatedAt) > FOUR_WEEKS_MS;
+
+    // 1. PRICE OPTIMIZATION
+    //    margin > 55% AND stress < 50 AND weekly_orders > 100 AND no price change in last 4 weeks
+    if (
+      p.true_margin > 55 &&
+      p.stress_score < 50 &&
+      p.weekly_orders > 100 &&
+      noRecentPriceChange
+    ) {
+      const increase = Math.max(1, Math.round(item.selling_price * 0.10));
+      const expectedRevenueGain = increase * p.weekly_orders;
+      // Assume ~10% price elasticity drag, keep ~90% of incremental revenue as profit
+      const expectedProfitGain = Math.round(expectedRevenueGain * 0.9);
       candidates.push({ type: "price", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
         dish_name: name, type: "price",
-        title: `Increase price by ₹${suggestedIncrease}`,
-        reasoning: `${name} has a ${p.true_margin.toFixed(0)}% margin — below the menu average of ${avgMargin.toFixed(0)}%. With ${p.weekly_orders} weekly orders, a ₹${suggestedIncrease} increase is unlikely to reduce demand significantly, adding ~₹${expectedProfitGain.toLocaleString()}/week profit.`,
-        expected_revenue_impact: Math.round(suggestedIncrease * p.weekly_orders),
+        title: `Increase price by ₹${increase}`,
+        reasoning: `${name} runs at a ${p.true_margin.toFixed(0)}% margin with low kitchen stress (${p.stress_score.toFixed(0)}/100) and strong weekly demand (${p.weekly_orders} orders). Price has been stable for 4+ weeks — a ₹${increase} (10%) increase should add ~₹${expectedProfitGain.toLocaleString()}/week with minimal demand impact.`,
+        expected_revenue_impact: expectedRevenueGain,
         expected_profit_impact: expectedProfitGain,
         expected_stress_impact: 0,
         status: "pending", week_start: weekStart,
       }});
     }
 
-    // 2. Portion size / reformulation
-    if (p.true_margin < avgMargin && p.demand_trend === "declining" && item.food_cost > item.selling_price * 0.4) {
-      const costSaving = Math.round(item.food_cost * 0.15);
-      candidates.push({ type: "reformulate", rec: {
+    // 2. PORTION SIZE ADJUSTMENT
+    //    margin < 20% AND stress > 60
+    if (p.true_margin < 20 && p.stress_score > 60) {
+      const reductionPct = 15;
+      const costSavingPerOrder = Math.round(item.food_cost * (reductionPct / 100));
+      const expectedProfitGain = costSavingPerOrder * p.weekly_orders;
+      candidates.push({ type: "portion", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
-        dish_name: name, type: "reformulate",
-        title: "Reduce portion size or substitute ingredients",
-        reasoning: `${name} has declining demand with a ${p.true_margin.toFixed(0)}% margin. Food cost is ${((item.food_cost / item.selling_price) * 100).toFixed(0)}% of selling price. Reformulating could save ~₹${costSaving} per order and improve margin.`,
+        dish_name: name, type: "portion",
+        title: `Reduce portion by ${reductionPct}%`,
+        reasoning: `${name} is squeezed on both sides — margin is only ${p.true_margin.toFixed(0)}% and kitchen stress is ${p.stress_score.toFixed(0)}/100. Trimming portion by ${reductionPct}% saves ~₹${costSavingPerOrder}/order (~₹${expectedProfitGain.toLocaleString()}/week) and lightens prep load.`,
         expected_revenue_impact: 0,
-        expected_profit_impact: Math.round(costSaving * p.weekly_orders),
-        expected_stress_impact: Math.round(-p.prep_time_volatility * 0.3),
+        expected_profit_impact: expectedProfitGain,
+        expected_stress_impact: -Math.round(p.stress_score * 0.15),
         status: "pending", week_start: weekStart,
       }});
     }
 
-    // 3. Time-based availability
-    if (p.peak_hour_concentration > 55 && p.stress_score > avgStress) {
-      candidates.push({ type: "availability", rec: {
-        restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
-        dish_name: name, type: "availability",
-        title: "Restrict to peak hours only",
-        reasoning: `${name} has ${p.peak_hour_concentration}% of orders concentrated in peak hours with stress score ${p.stress_score.toFixed(0)}%. Making it available only during peak times reduces kitchen load during off-peak while maintaining revenue.`,
-        expected_revenue_impact: Math.round(-p.weekly_revenue * 0.05),
-        expected_profit_impact: Math.round(-p.weekly_profit * 0.03),
-        expected_stress_impact: Math.round(-p.stress_score * 0.2),
-        status: "pending", week_start: weekStart,
-      }});
+    // 3. TIME-BASED AVAILABILITY
+    //    Stress during specific period > 80 AND <30% of orders occur in that period
+    {
+      const pattern: any = (p as any).demand_pattern || {};
+      const byHour: Record<number, number> = pattern.byHour || {};
+      const lunch = (byHour[12] || 0) + (byHour[13] || 0) + (byHour[14] || 0);
+      const dinner = (byHour[19] || 0) + (byHour[20] || 0) + (byHour[21] || 0);
+      const total = Object.values(byHour).reduce((a: number, b: number) => a + b, 0) || 1;
+      // Use overall stress as proxy for per-window stress when specific window dominates kitchen load
+      const windowStress = p.stress_score;
+
+      let removeWindow: "lunch" | "dinner" | null = null;
+      if (windowStress > 80 && lunch / total < 0.30 && lunch > 0) removeWindow = "lunch";
+      else if (windowStress > 80 && dinner / total < 0.30 && dinner > 0) removeWindow = "dinner";
+
+      if (removeWindow) {
+        const lostOrders = removeWindow === "lunch" ? lunch : dinner;
+        const lostRevenue = Math.round((lostOrders / total) * p.weekly_revenue);
+        const lostProfit = Math.round((lostOrders / total) * p.weekly_profit);
+        candidates.push({ type: "availability", rec: {
+          restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
+          dish_name: name, type: "availability",
+          title: `Remove from ${removeWindow} menu`,
+          reasoning: `${name} drives heavy kitchen stress (${windowStress.toFixed(0)}/100) but only ${Math.round((lostOrders / total) * 100)}% of its orders happen at ${removeWindow}. Removing it from the ${removeWindow} menu cuts pressure during a low-payoff window with only ~₹${lostRevenue.toLocaleString()} revenue at stake.`,
+          expected_revenue_impact: -lostRevenue,
+          expected_profit_impact: -lostProfit,
+          expected_stress_impact: -Math.round(p.stress_score * 0.25),
+          status: "pending", week_start: weekStart,
+        }});
+      }
     }
 
-    // 4. Dine-in vs delivery restriction
-    if (p.stress_score > 60 && p.prep_time_volatility > 20) {
-      candidates.push({ type: "channel", rec: {
-        restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
-        dish_name: name, type: "channel",
-        title: "Restrict to dine-in only",
-        reasoning: `${name} has stress score ${p.stress_score.toFixed(0)}% and high prep-time volatility (${p.prep_time_volatility.toFixed(0)}%). Delivery orders create unpredictable timing pressure. Restricting to dine-in reduces kitchen stress.`,
-        expected_revenue_impact: Math.round(-p.weekly_revenue * 0.15),
-        expected_profit_impact: Math.round(-p.weekly_profit * 0.1),
-        expected_stress_impact: Math.round(-p.stress_score * 0.25),
-        status: "pending", week_start: weekStart,
-      }});
+    // 4. CHANNEL RESTRICTION (dine-in only)
+    //    High prep complexity AND delivery share is large enough to risk quality complaints
+    //    Proxy: complexity = "high" AND delivery share > 25% (we don't have ratings yet)
+    {
+      const pattern: any = (p as any).demand_pattern || {};
+      const byOrderType = pattern.byOrderType || {};
+      const deliveryPct = byOrderType.delivery || 0;
+      const isComplex = (item.complexity || "medium") === "high" || item.prep_time_minutes >= 20;
+
+      if (isComplex && deliveryPct >= 25) {
+        const lostRevenue = Math.round((deliveryPct / 100) * p.weekly_revenue);
+        candidates.push({ type: "channel", rec: {
+          restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
+          dish_name: name, type: "channel",
+          title: "Restrict to dine-in only",
+          reasoning: `${name} is a high-complexity dish (prep ${item.prep_time_minutes} min) and ${deliveryPct}% of its orders go through delivery — where travel time degrades quality and drives complaints. Restricting to dine-in protects brand quality at the cost of ~₹${lostRevenue.toLocaleString()}/week in delivery revenue.`,
+          expected_revenue_impact: -lostRevenue,
+          expected_profit_impact: -Math.round((deliveryPct / 100) * p.weekly_profit),
+          expected_stress_impact: -Math.round(p.stress_score * 0.20),
+          status: "pending", week_start: weekStart,
+        }});
+      }
     }
 
-    // 5. Gradual dish removal
-    if ((p.classification === "hidden-loss" || p.classification === "low-impact-filler") && p.demand_trend === "declining" && p.weekly_orders < 40) {
-      candidates.push({ type: "remove", rec: {
-        restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
-        dish_name: name, type: "remove",
-        title: "Consider removing from menu",
-        reasoning: `${name} is classified as ${p.classification} with declining demand (${p.weekly_orders} orders/wk). It contributes only ₹${p.weekly_profit.toLocaleString()} profit. Removing simplifies operations without meaningful revenue loss.`,
-        expected_revenue_impact: Math.round(-p.weekly_revenue),
-        expected_profit_impact: Math.round(-p.weekly_profit),
-        expected_stress_impact: Math.round(-p.stress_score),
-        status: "pending", week_start: weekStart,
-      }});
+    // 5. GRADUAL REMOVAL
+    //    Persistent negative margin (proxy: classification = hidden-loss for this period)
+    //    AND multiple ignored optimization recs AND weekly orders < 30
+    {
+      const ignoredAny =
+        (learning.ignoreCount.get(`${p.menu_item_id}:price`) || 0) +
+        (learning.ignoreCount.get(`${p.menu_item_id}:portion`) || 0) +
+        (learning.ignoreCount.get(`${p.menu_item_id}:reformulate`) || 0);
+
+      if (
+        (p.true_margin < 0 || p.classification === "hidden-loss") &&
+        ignoredAny >= 2 &&
+        p.weekly_orders < 30
+      ) {
+        candidates.push({ type: "remove", rec: {
+          restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
+          dish_name: name, type: "remove",
+          title: "Begin 4-week removal process",
+          reasoning: `${name} has been losing money (${p.true_margin.toFixed(0)}% margin, ${p.weekly_orders} orders/wk) and prior optimization suggestions were ignored ${ignoredAny} times. Phase it out over 4 weeks: reduce visibility week 1–2, remove from menu week 3–4. Loss avoided: ~₹${Math.abs(p.weekly_profit).toLocaleString()}/week.`,
+          expected_revenue_impact: -p.weekly_revenue,
+          expected_profit_impact: -p.weekly_profit, // removing a loss = positive on bottom line if profit was negative
+          expected_stress_impact: -Math.round(p.stress_score),
+          status: "pending", week_start: weekStart,
+        }});
+      }
     }
 
-    // 6. Seasonal revival / promotion
-    if (p.demand_trend === "rising" && p.classification === "high-profit") {
-      const potentialGain = Math.round(p.weekly_revenue * 0.15);
-      candidates.push({ type: "promote", rec: {
-        restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
-        dish_name: name, type: "promote",
-        title: "Feature as weekly special",
-        reasoning: `${name} shows rising demand with strong ${p.true_margin.toFixed(0)}% margins. Featuring it prominently could increase orders by 15–20%, adding ~₹${potentialGain.toLocaleString()} in weekly revenue with minimal stress increase.`,
-        expected_revenue_impact: potentialGain,
-        expected_profit_impact: Math.round(potentialGain * (p.true_margin / 100)),
-        expected_stress_impact: Math.round(p.stress_score * 0.1),
-        status: "pending", week_start: weekStart,
-      }});
+    // 6. SEASONAL REVIVAL
+    //    Previously high-performing (margin > 50) AND removed > 8 weeks ago
+    //    Proxy: is_active = false AND updated_at > 8 weeks ago AND historical margin > 50
+    {
+      const EIGHT_WEEKS_MS = 56 * 24 * 60 * 60 * 1000;
+      const removedLongAgo =
+        item.is_active === false &&
+        itemUpdatedAt > 0 &&
+        (Date.now() - itemUpdatedAt) > EIGHT_WEEKS_MS;
+      const wasHighPerformer = p.true_margin > 50;
+
+      if (removedLongAgo && wasHighPerformer) {
+        const expectedRevenue = Math.round(p.weekly_revenue * 0.7);
+        const expectedProfit = Math.round(expectedRevenue * (p.true_margin / 100));
+        candidates.push({ type: "revive", rec: {
+          restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
+          dish_name: name, type: "revive",
+          title: "Consider seasonal re-introduction",
+          reasoning: `${name} was a strong performer (${p.true_margin.toFixed(0)}% margin) before being removed. With 8+ weeks off the menu and seasonal demand patterns aligning, re-introducing it could recapture ~₹${expectedRevenue.toLocaleString()}/week in revenue.`,
+          expected_revenue_impact: expectedRevenue,
+          expected_profit_impact: expectedProfit,
+          expected_stress_impact: Math.round(p.stress_score * 0.1),
+          status: "pending", week_start: weekStart,
+        }});
+      }
     }
 
-    // 7. Cannibalization resolution
+    // 7. CANNIBALIZATION RESOLUTION (kept from prior logic)
     if (p.cannibalization_score > 40) {
       candidates.push({ type: "bundle", rec: {
         restaurant_id: restaurantId, snapshot_id: snapshotId, menu_item_id: p.menu_item_id,
@@ -185,7 +253,7 @@ function generateRecommendations(
         reasoning: `${name} has a cannibalization score of ${p.cannibalization_score.toFixed(0)}%, meaning it competes with similar items on your menu. Consider bundling, repositioning, or removing the lower-performing variant.`,
         expected_revenue_impact: 0,
         expected_profit_impact: Math.round(p.weekly_profit * 0.1),
-        expected_stress_impact: Math.round(-p.stress_score * 0.1),
+        expected_stress_impact: -Math.round(p.stress_score * 0.1),
         status: "pending", week_start: weekStart,
       }});
     }

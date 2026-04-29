@@ -216,16 +216,38 @@ const ActionPlan = () => {
               )}
 
               {/* Status indicator for acted-on recs — green for approved, gray for ignored */}
-              {!isPending && (
-                <span className={cn(
-                  "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded",
-                  rec.status === "approved"
-                    ? "bg-opportunity/15 text-opportunity border border-opportunity/30"
-                    : "bg-secondary text-muted-foreground border border-border"
-                )}>
-                  {rec.status === "approved" ? "✓ Approved" : "Ignored"}
-                </span>
-              )}
+              {!isPending && (() => {
+                const fb = feedbackByRecId.get(rec.id);
+                const isImplemented = !!fb?.implemented_at;
+                return (
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded",
+                      rec.status === "approved"
+                        ? "bg-opportunity/15 text-opportunity border border-opportunity/30"
+                        : "bg-secondary text-muted-foreground border border-border"
+                    )}>
+                      {rec.status === "approved"
+                        ? (isImplemented ? "✓ Implemented" : "✓ Approved")
+                        : "Ignored"}
+                    </span>
+                    {rec.status === "approved" && !isImplemented && (
+                      <button
+                        onClick={() => markImplemented.mutate({ recommendationId: rec.id })}
+                        disabled={markImplemented.isPending}
+                        className="text-xs font-medium text-muted-foreground hover:text-foreground underline underline-offset-4 disabled:opacity-50"
+                      >
+                        Mark as implemented
+                      </button>
+                    )}
+                    {isImplemented && fb?.implemented_at && (
+                      <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                        on {new Date(fb.implemented_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

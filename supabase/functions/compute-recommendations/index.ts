@@ -390,7 +390,7 @@ Deno.serve(async (req) => {
     const menuItemIds = profiles.map((p: any) => p.menu_item_id);
     const { data: menuItems } = await supabase
       .from("menu_items")
-      .select("id, name, category, selling_price, food_cost, prep_time_minutes, is_active")
+      .select("id, name, category, selling_price, food_cost, prep_time_minutes, complexity, is_active, updated_at")
       .in("id", menuItemIds);
 
     const menuMap = new Map<string, MenuItem>();

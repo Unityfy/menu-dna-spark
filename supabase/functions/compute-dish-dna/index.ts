@@ -139,18 +139,77 @@ function classify(
   return "low-impact-filler";
 }
 
-function computeRiskFlags(
-  margin: number,
-  stressScore: number,
-  demandTrend: string,
-  cannibalizationScore: number,
-  avgMargin: number
-): string[] {
+interface FlagInputs {
+  margin: number;
+  stressScore: number;
+  demandTrend: string;
+  cannibalizationScore: number;
+  avgMargin: number;
+  weeklyOrders: number;
+  avgOrders: number;
+  volLabel: "low" | "medium" | "high";
+  patternLabel: string;
+  byHour: Record<number, number>;
+  peakConcentration: number;
+  totalQty: number;
+}
+
+// Returns actionable flags grouped by intent:
+//   performance: strong | profit_opportunity | immediate_attention | optimization_needed
+//   stability:   stable | volatile | seasonal
+//   opportunity: price_increase_candidate | portion_optimization | timing_restriction
+function computeRiskFlags(inp: FlagInputs): string[] {
   const flags: string[] = [];
-  if (margin < avgMargin * 0.75) flags.push("profit_risk");
-  if (stressScore >= 55) flags.push("stress_risk");
-  if (demandTrend === "declining") flags.push("demand_risk");
-  if (cannibalizationScore >= 40) flags.push("cannibalization_risk");
+  const {
+    margin, stressScore, demandTrend, cannibalizationScore, avgMargin,
+    weeklyOrders, avgOrders, volLabel, patternLabel, byHour, peakConcentration, totalQty,
+  } = inp;
+
+  // --- Performance flags (mutually exclusive, priority order) ---
+  if (margin < 0) {
+    flags.push("immediate_attention");
+  } else if (stressScore >= 70 || volLabel === "high") {
+    flags.push("optimization_needed");
+  } else if (margin >= Math.max(avgMargin, 40) && weeklyOrders < avgOrders * 0.6) {
+    flags.push("profit_opportunity");
+  } else if (margin >= avgMargin && stressScore < 50) {
+    flags.push("strong_performer");
+  }
+
+  // --- Stability indicators ---
+  if (patternLabel === "Weekend Heavy" || patternLabel === "Lunch Peak" || patternLabel === "Dinner Peak") {
+    flags.push("seasonal");
+  } else if (volLabel === "high") {
+    flags.push("volatile");
+  } else if (volLabel === "low" && demandTrend === "stable") {
+    flags.push("stable");
+  }
+
+  // --- Opportunity markers ---
+  // Price-increase candidate: strong demand + healthy margin + low cannibalization
+  if (
+    weeklyOrders >= avgOrders &&
+    demandTrend !== "declining" &&
+    margin >= 40 &&
+    cannibalizationScore < 40
+  ) {
+    flags.push("price_increase_candidate");
+  }
+  // Portion optimization: low margin despite consistent demand (waste/cost signal)
+  if (margin > 0 && margin < Math.min(avgMargin * 0.75, 25) && weeklyOrders >= avgOrders * 0.75) {
+    flags.push("portion_optimization");
+  }
+  // Timing restriction: large lunch vs dinner gap
+  const lunch = (byHour[12] || 0) + (byHour[13] || 0) + (byHour[14] || 0);
+  const dinner = (byHour[19] || 0) + (byHour[20] || 0) + (byHour[21] || 0);
+  if (totalQty >= 20) {
+    const dominant = Math.max(lunch, dinner);
+    const weaker = Math.min(lunch, dinner);
+    if (dominant > 0 && weaker / dominant < 0.25 && peakConcentration >= 40) {
+      flags.push("timing_restriction");
+    }
+  }
+
   return flags;
 }
 
@@ -344,7 +403,20 @@ Deno.serve(async (req) => {
 
       const cannibal = computeCannibalization(dishMeta, item.name, item.category, item.selling_price);
       const cls = classify(profitMargin, stressScore, weeklyOrders, weeklyProfit, volLabel);
-      const riskFlags = computeRiskFlags(profitMargin, stressScore, demandTrend, cannibal.score, avgMargin);
+      const riskFlags = computeRiskFlags({
+        margin: profitMargin,
+        stressScore,
+        demandTrend,
+        cannibalizationScore: cannibal.score,
+        avgMargin,
+        weeklyOrders,
+        avgOrders,
+        volLabel,
+        patternLabel,
+        byHour,
+        peakConcentration,
+        totalQty,
+      });
 
       profiles.push({
         menu_item_id: item.id,

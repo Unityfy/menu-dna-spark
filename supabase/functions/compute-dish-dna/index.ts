@@ -119,19 +119,23 @@ function computeCannibalization(
   return { score: Math.round(topScore * 100), competing: competing.slice(0, 3) };
 }
 
+// Spec-driven classifier (priority order):
+//   1. Hidden Loss-Making   — margin < 0 OR weekly_profit < 0
+//   2. Kitchen Disruptor    — stress > 70 AND volatility = "high"
+//   3. High-Profit          — margin > 50 AND weekly_profit > 5000 AND stress < 60
+//   4. Low-Impact Filler    — weekly_orders < 20 AND 20 <= margin <= 40 AND stress < 40
+//   5. fallback             — low-impact-filler
 function classify(
   margin: number,
   stressScore: number,
   weeklyOrders: number,
-  avgMenuMargin: number,
-  avgMenuOrders: number
+  weeklyProfit: number,
+  volLabel: "low" | "medium" | "high"
 ): string {
-  const highMargin = margin >= avgMenuMargin;
-  const highVolume = weeklyOrders >= avgMenuOrders * 0.5;
-
-  if (margin < 40) return "hidden-loss";
-  if (stressScore >= 60) return "kitchen-disruptor";
-  if (highMargin && highVolume) return "high-profit";
+  if (margin < 0 || weeklyProfit < 0) return "hidden-loss";
+  if (stressScore > 70 && volLabel === "high") return "kitchen-disruptor";
+  if (margin > 50 && weeklyProfit > 5000 && stressScore < 60) return "high-profit";
+  if (weeklyOrders < 20 && margin >= 20 && margin <= 40 && stressScore < 40) return "low-impact-filler";
   return "low-impact-filler";
 }
 

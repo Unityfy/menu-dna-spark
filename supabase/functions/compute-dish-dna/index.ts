@@ -343,7 +343,7 @@ Deno.serve(async (req) => {
       };
 
       const cannibal = computeCannibalization(dishMeta, item.name, item.category, item.selling_price);
-      const cls = classify(profitMargin, stressScore, weeklyOrders, avgMargin, avgOrders);
+      const cls = classify(profitMargin, stressScore, weeklyOrders, weeklyProfit, volLabel);
       const riskFlags = computeRiskFlags(profitMargin, stressScore, demandTrend, cannibal.score, avgMargin);
 
       profiles.push({

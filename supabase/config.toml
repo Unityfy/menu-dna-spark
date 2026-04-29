@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.aggregate-sales]
 verify_jwt = false
+
+[functions.weekly-recommendations-batch]
+verify_jwt = false

@@ -552,19 +552,31 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          last_sync_error: string | null
+          last_sync_status: string | null
+          last_synced_at: string | null
           name: string
+          pos_provider: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
           name: string
+          pos_provider?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
           name?: string
+          pos_provider?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -574,6 +586,7 @@ export type Database = {
           created_at: string
           dish_id: string | null
           dish_name: string
+          external_order_id: string | null
           id: string
           order_timestamp: string
           order_type: string
@@ -582,11 +595,13 @@ export type Database = {
           restaurant_id: string
           selling_price: number
           source: string
+          synced_at: string | null
         }
         Insert: {
           created_at?: string
           dish_id?: string | null
           dish_name: string
+          external_order_id?: string | null
           id?: string
           order_timestamp: string
           order_type?: string
@@ -595,11 +610,13 @@ export type Database = {
           restaurant_id: string
           selling_price: number
           source?: string
+          synced_at?: string | null
         }
         Update: {
           created_at?: string
           dish_id?: string | null
           dish_name?: string
+          external_order_id?: string | null
           id?: string
           order_timestamp?: string
           order_type?: string
@@ -608,6 +625,7 @@ export type Database = {
           restaurant_id?: string
           selling_price?: number
           source?: string
+          synced_at?: string | null
         }
         Relationships: [
           {

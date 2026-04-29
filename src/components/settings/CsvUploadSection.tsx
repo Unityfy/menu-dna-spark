@@ -268,9 +268,6 @@ const CsvUploadSection = () => {
         toast.success(`Imported ${payload.length} menu items`);
         queryClient.invalidateQueries({ queryKey: ["menu-list"] });
       } else {
-        toast.success(`Imported ${payload.length} menu items`);
-        queryClient.invalidateQueries({ queryKey: ["menu-list"] });
-      } else {
         // ingredients: update menu_items.food_cost by aggregating per dish
         const byDish = new Map<string, number>();
         for (const r of records as Array<{ dish_name: string; quantity: number; unit_cost: number }>) {

@@ -1,4 +1,10 @@
-import { useRecommendations, useUpdateRecommendationStatus, type Recommendation } from "@/hooks/useRecommendations";
+import {
+  useRecommendations,
+  useUpdateRecommendationStatus,
+  useRecommendationFeedback,
+  useMarkRecommendationImplemented,
+  type Recommendation,
+} from "@/hooks/useRecommendations";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -28,9 +34,19 @@ const classificationBadge = (type: string) => {
 const ActionPlan = () => {
   const navigate = useNavigate();
   const { data: recs = [], isLoading } = useRecommendations();
+  const { data: feedback = [] } = useRecommendationFeedback();
   const updateStatus = useUpdateRecommendationStatus();
+  const markImplemented = useMarkRecommendationImplemented();
 
   const displayRecs: Recommendation[] = recs;
+
+  // Map recommendation_id -> latest feedback row for "implemented" state
+  const feedbackByRecId = new Map<string, { decision: string; implemented_at: string | null }>();
+  for (const f of feedback) {
+    if (!feedbackByRecId.has(f.recommendation_id)) {
+      feedbackByRecId.set(f.recommendation_id, { decision: f.decision, implemented_at: f.implemented_at });
+    }
+  }
 
   const pendingRecs = displayRecs.filter((r) => r.status === "pending");
   const approvedRecs = displayRecs.filter((r) => r.status === "approved");
@@ -200,16 +216,38 @@ const ActionPlan = () => {
               )}
 
               {/* Status indicator for acted-on recs — green for approved, gray for ignored */}
-              {!isPending && (
-                <span className={cn(
-                  "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded",
-                  rec.status === "approved"
-                    ? "bg-opportunity/15 text-opportunity border border-opportunity/30"
-                    : "bg-secondary text-muted-foreground border border-border"
-                )}>
-                  {rec.status === "approved" ? "✓ Approved" : "Ignored"}
-                </span>
-              )}
+              {!isPending && (() => {
+                const fb = feedbackByRecId.get(rec.id);
+                const isImplemented = !!fb?.implemented_at;
+                return (
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded",
+                      rec.status === "approved"
+                        ? "bg-opportunity/15 text-opportunity border border-opportunity/30"
+                        : "bg-secondary text-muted-foreground border border-border"
+                    )}>
+                      {rec.status === "approved"
+                        ? (isImplemented ? "✓ Implemented" : "✓ Approved")
+                        : "Ignored"}
+                    </span>
+                    {rec.status === "approved" && !isImplemented && (
+                      <button
+                        onClick={() => markImplemented.mutate({ recommendationId: rec.id })}
+                        disabled={markImplemented.isPending}
+                        className="text-xs font-medium text-muted-foreground hover:text-foreground underline underline-offset-4 disabled:opacity-50"
+                      >
+                        Mark as implemented
+                      </button>
+                    )}
+                    {isImplemented && fb?.implemented_at && (
+                      <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                        on {new Date(fb.implemented_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

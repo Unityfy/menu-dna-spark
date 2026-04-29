@@ -1,4 +1,10 @@
-import { useRecommendations, useUpdateRecommendationStatus, type Recommendation } from "@/hooks/useRecommendations";
+import {
+  useRecommendations,
+  useUpdateRecommendationStatus,
+  useRecommendationFeedback,
+  useMarkRecommendationImplemented,
+  type Recommendation,
+} from "@/hooks/useRecommendations";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";

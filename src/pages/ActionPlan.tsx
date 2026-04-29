@@ -34,9 +34,19 @@ const classificationBadge = (type: string) => {
 const ActionPlan = () => {
   const navigate = useNavigate();
   const { data: recs = [], isLoading } = useRecommendations();
+  const { data: feedback = [] } = useRecommendationFeedback();
   const updateStatus = useUpdateRecommendationStatus();
+  const markImplemented = useMarkRecommendationImplemented();
 
   const displayRecs: Recommendation[] = recs;
+
+  // Map recommendation_id -> latest feedback row for "implemented" state
+  const feedbackByRecId = new Map<string, { decision: string; implemented_at: string | null }>();
+  for (const f of feedback) {
+    if (!feedbackByRecId.has(f.recommendation_id)) {
+      feedbackByRecId.set(f.recommendation_id, { decision: f.decision, implemented_at: f.implemented_at });
+    }
+  }
 
   const pendingRecs = displayRecs.filter((r) => r.status === "pending");
   const approvedRecs = displayRecs.filter((r) => r.status === "approved");

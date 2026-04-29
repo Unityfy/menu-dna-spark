@@ -378,6 +378,50 @@ export type Database = {
           },
         ]
       }
+      recommendation_feedback: {
+        Row: {
+          created_at: string
+          decided_at: string
+          decision: string
+          id: string
+          implemented_at: string | null
+          recommendation_id: string
+          restaurant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string
+          decision: string
+          id?: string
+          implemented_at?: string | null
+          recommendation_id: string
+          restaurant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string
+          decision?: string
+          id?: string
+          implemented_at?: string | null
+          recommendation_id?: string
+          restaurant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_feedback_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recommendation_outcomes: {
         Row: {
           action_at: string

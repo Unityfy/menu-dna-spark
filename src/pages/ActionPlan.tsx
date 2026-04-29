@@ -73,18 +73,23 @@ const ActionPlan = () => {
     return `${sign}${value}%`;
   };
 
+  const latestWeekStart = displayRecs[0]?.week_start;
+  const weekLabel = latestWeekStart
+    ? new Date(latestWeekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
         <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">
-          Week 8 · {displayRecs.length} Recommendations
+          {weekLabel ? `Week of ${weekLabel}` : "This week"} · {displayRecs.length} Recommendations
         </p>
         <h1 className="text-3xl font-bold text-foreground font-[var(--font-display)]">
           Weekly Action Plan
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Review, approve, or dismiss each recommendation below
+          Review, approve, or ignore each recommendation below
         </p>
       </div>
 

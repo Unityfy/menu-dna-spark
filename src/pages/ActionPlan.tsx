@@ -73,18 +73,23 @@ const ActionPlan = () => {
     return `${sign}${value}%`;
   };
 
+  const latestWeekStart = displayRecs[0]?.week_start;
+  const weekLabel = latestWeekStart
+    ? new Date(latestWeekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
         <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">
-          Week 8 · {displayRecs.length} Recommendations
+          {weekLabel ? `Week of ${weekLabel}` : "This week"} · {displayRecs.length} Recommendations
         </p>
         <h1 className="text-3xl font-bold text-foreground font-[var(--font-display)]">
           Weekly Action Plan
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Review, approve, or dismiss each recommendation below
+          Review, approve, or ignore each recommendation below
         </p>
       </div>
 
@@ -189,18 +194,20 @@ const ActionPlan = () => {
                     disabled={updateStatus.isPending}
                     className="rounded-md border border-border bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
                   >
-                    Dismiss
+                    Ignore
                   </button>
                 </div>
               )}
 
-              {/* Status indicator for acted-on recs */}
+              {/* Status indicator for acted-on recs — green for approved, gray for ignored */}
               {!isPending && (
                 <span className={cn(
-                  "inline-flex items-center text-xs font-medium px-2 py-0.5 rounded",
-                  rec.status === "approved" ? "bg-opportunity/15 text-opportunity" : "bg-secondary text-muted-foreground"
+                  "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded",
+                  rec.status === "approved"
+                    ? "bg-opportunity/15 text-opportunity border border-opportunity/30"
+                    : "bg-secondary text-muted-foreground border border-border"
                 )}>
-                  {rec.status === "approved" ? "✓ Approved" : "Dismissed"}
+                  {rec.status === "approved" ? "✓ Approved" : "Ignored"}
                 </span>
               )}
             </div>

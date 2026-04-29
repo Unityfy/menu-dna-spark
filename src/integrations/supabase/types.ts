@@ -581,6 +581,168 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_aggregates_daily: {
+        Row: {
+          avg_price: number
+          bucket_date: string
+          computed_at: string
+          created_at: string
+          delivery_qty: number
+          dine_in_qty: number
+          dish_name: string
+          dish_name_normalized: string
+          id: string
+          order_count: number
+          restaurant_id: string
+          running_total_quantity: number
+          running_total_revenue: number
+          takeaway_qty: number
+          total_quantity: number
+          total_revenue: number
+        }
+        Insert: {
+          avg_price?: number
+          bucket_date: string
+          computed_at?: string
+          created_at?: string
+          delivery_qty?: number
+          dine_in_qty?: number
+          dish_name: string
+          dish_name_normalized: string
+          id?: string
+          order_count?: number
+          restaurant_id: string
+          running_total_quantity?: number
+          running_total_revenue?: number
+          takeaway_qty?: number
+          total_quantity?: number
+          total_revenue?: number
+        }
+        Update: {
+          avg_price?: number
+          bucket_date?: string
+          computed_at?: string
+          created_at?: string
+          delivery_qty?: number
+          dine_in_qty?: number
+          dish_name?: string
+          dish_name_normalized?: string
+          id?: string
+          order_count?: number
+          restaurant_id?: string
+          running_total_quantity?: number
+          running_total_revenue?: number
+          takeaway_qty?: number
+          total_quantity?: number
+          total_revenue?: number
+        }
+        Relationships: []
+      }
+      sales_aggregates_monthly: {
+        Row: {
+          avg_price: number
+          computed_at: string
+          created_at: string
+          delivery_qty: number
+          dine_in_qty: number
+          dish_name: string
+          dish_name_normalized: string
+          id: string
+          month_start: string
+          order_count: number
+          restaurant_id: string
+          takeaway_qty: number
+          total_quantity: number
+          total_revenue: number
+        }
+        Insert: {
+          avg_price?: number
+          computed_at?: string
+          created_at?: string
+          delivery_qty?: number
+          dine_in_qty?: number
+          dish_name: string
+          dish_name_normalized: string
+          id?: string
+          month_start: string
+          order_count?: number
+          restaurant_id: string
+          takeaway_qty?: number
+          total_quantity?: number
+          total_revenue?: number
+        }
+        Update: {
+          avg_price?: number
+          computed_at?: string
+          created_at?: string
+          delivery_qty?: number
+          dine_in_qty?: number
+          dish_name?: string
+          dish_name_normalized?: string
+          id?: string
+          month_start?: string
+          order_count?: number
+          restaurant_id?: string
+          takeaway_qty?: number
+          total_quantity?: number
+          total_revenue?: number
+        }
+        Relationships: []
+      }
+      sales_aggregates_weekly: {
+        Row: {
+          avg_price: number
+          computed_at: string
+          created_at: string
+          delivery_qty: number
+          dine_in_qty: number
+          dish_name: string
+          dish_name_normalized: string
+          id: string
+          order_count: number
+          restaurant_id: string
+          takeaway_qty: number
+          total_quantity: number
+          total_revenue: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          avg_price?: number
+          computed_at?: string
+          created_at?: string
+          delivery_qty?: number
+          dine_in_qty?: number
+          dish_name: string
+          dish_name_normalized: string
+          id?: string
+          order_count?: number
+          restaurant_id: string
+          takeaway_qty?: number
+          total_quantity?: number
+          total_revenue?: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          avg_price?: number
+          computed_at?: string
+          created_at?: string
+          delivery_qty?: number
+          dine_in_qty?: number
+          dish_name?: string
+          dish_name_normalized?: string
+          id?: string
+          order_count?: number
+          restaurant_id?: string
+          takeaway_qty?: number
+          total_quantity?: number
+          total_revenue?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       sales_transactions: {
         Row: {
           created_at: string

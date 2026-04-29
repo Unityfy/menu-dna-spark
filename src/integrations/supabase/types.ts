@@ -426,6 +426,9 @@ export type Database = {
         Row: {
           action_at: string
           action_taken: string
+          actual_profit_impact: number | null
+          actual_revenue_impact: number | null
+          actual_stress_impact: number | null
           baseline_profit: number
           baseline_revenue: number
           baseline_stress: number
@@ -438,6 +441,9 @@ export type Database = {
           measured_stress: number | null
           menu_item_id: string
           observation_weeks: number
+          prediction_accuracy_profit: number | null
+          prediction_accuracy_revenue: number | null
+          prediction_accuracy_stress: number | null
           profit_delta: number | null
           recommendation_id: string
           recommendation_type: string
@@ -449,6 +455,9 @@ export type Database = {
         Insert: {
           action_at?: string
           action_taken: string
+          actual_profit_impact?: number | null
+          actual_revenue_impact?: number | null
+          actual_stress_impact?: number | null
           baseline_profit?: number
           baseline_revenue?: number
           baseline_stress?: number
@@ -461,6 +470,9 @@ export type Database = {
           measured_stress?: number | null
           menu_item_id: string
           observation_weeks?: number
+          prediction_accuracy_profit?: number | null
+          prediction_accuracy_revenue?: number | null
+          prediction_accuracy_stress?: number | null
           profit_delta?: number | null
           recommendation_id: string
           recommendation_type: string
@@ -472,6 +484,9 @@ export type Database = {
         Update: {
           action_at?: string
           action_taken?: string
+          actual_profit_impact?: number | null
+          actual_revenue_impact?: number | null
+          actual_stress_impact?: number | null
           baseline_profit?: number
           baseline_revenue?: number
           baseline_stress?: number
@@ -484,6 +499,9 @@ export type Database = {
           measured_stress?: number | null
           menu_item_id?: string
           observation_weeks?: number
+          prediction_accuracy_profit?: number | null
+          prediction_accuracy_revenue?: number | null
+          prediction_accuracy_stress?: number | null
           profit_delta?: number | null
           recommendation_id?: string
           recommendation_type?: string

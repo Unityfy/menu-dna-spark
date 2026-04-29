@@ -371,10 +371,16 @@ const SettingsPage = () => {
 
         {/* Right Column */}
         <div className="space-y-8">
-          {/* Data Upload */}
+          {/* Data Upload (advanced/legacy) */}
           <div>
             <SectionTitle>Data Upload</SectionTitle>
             <DataUploadSection />
+          </div>
+
+          {/* CSV Templates */}
+          <div>
+            <SectionTitle>CSV Import</SectionTitle>
+            <CsvUploadSection />
           </div>
 
           {/* Notifications */}

@@ -6,11 +6,10 @@ interface Props {
 }
 
 const PROGRESS_MESSAGES = [
-  "Normalizing menu data…",
-  "Calculating dish-level margins…",
-  "Scoring kitchen stress points…",
-  "Identifying demand patterns…",
-  "Building baseline health report…",
+  "Analyzing your menu…",
+  "Calculating profitability…",
+  "Detecting patterns…",
+  "Generating insights…",
 ];
 
 const StepBaseline = ({ onComplete }: Props) => {
@@ -29,33 +28,38 @@ const StepBaseline = ({ onComplete }: Props) => {
         }
         return prev + 1;
       });
-    }, 700);
+    }, 900);
 
     return () => clearInterval(msgTimer);
   }, [phase]);
 
   if (phase === "analyzing") {
     return (
-      <div className="text-center py-10 space-y-6">
+      <div className="text-center py-12 space-y-6">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-muted-foreground border-t-foreground mx-auto" />
-        <div className="space-y-2">
-          <p className="text-sm text-foreground font-medium">{PROGRESS_MESSAGES[msgIndex]}</p>
+        <div className="space-y-3">
+          <p className="text-sm text-foreground font-medium transition-opacity duration-300">
+            {PROGRESS_MESSAGES[msgIndex]}
+          </p>
           <div className="h-1 w-48 mx-auto bg-secondary rounded-full overflow-hidden">
             <div
               className="h-full bg-foreground rounded-full transition-all duration-500"
               style={{ width: `${((msgIndex + 1) / PROGRESS_MESSAGES.length) * 100}%` }}
             />
           </div>
+          <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">
+            This usually takes a few seconds
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="text-center space-y-6">
+    <div className="text-center space-y-6 animate-in fade-in duration-500">
       <div>
-        <p className="text-xs text-opportunity font-medium uppercase tracking-wider mb-3">Baseline Complete</p>
-        <CircularScore score={74} size={120} label="Menu Health Score" />
+        <p className="text-xs text-opportunity font-medium uppercase tracking-wider mb-3">Analysis Complete</p>
+        <CircularScore score={74} size={140} label="Menu Health Score" />
       </div>
 
       <div className="grid grid-cols-3 gap-4">

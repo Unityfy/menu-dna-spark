@@ -194,18 +194,20 @@ const ActionPlan = () => {
                     disabled={updateStatus.isPending}
                     className="rounded-md border border-border bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
                   >
-                    Dismiss
+                    Ignore
                   </button>
                 </div>
               )}
 
-              {/* Status indicator for acted-on recs */}
+              {/* Status indicator for acted-on recs — green for approved, gray for ignored */}
               {!isPending && (
                 <span className={cn(
-                  "inline-flex items-center text-xs font-medium px-2 py-0.5 rounded",
-                  rec.status === "approved" ? "bg-opportunity/15 text-opportunity" : "bg-secondary text-muted-foreground"
+                  "inline-flex items-center text-xs font-medium px-2.5 py-1 rounded",
+                  rec.status === "approved"
+                    ? "bg-opportunity/15 text-opportunity border border-opportunity/30"
+                    : "bg-secondary text-muted-foreground border border-border"
                 )}>
-                  {rec.status === "approved" ? "✓ Approved" : "Dismissed"}
+                  {rec.status === "approved" ? "✓ Approved" : "Ignored"}
                 </span>
               )}
             </div>

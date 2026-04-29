@@ -4,6 +4,7 @@ import { useSalesIngestion } from "@/hooks/useSalesIngestion";
 import { Upload, FileText, CheckCircle, AlertCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import PosSyncSection from "@/components/settings/PosSyncSection";
+import CsvUploadSection from "@/components/settings/CsvUploadSection";
 
 const ToggleRow = ({ label, defaultOn }: { label: string; defaultOn: boolean }) => {
   const [on, setOn] = useState(defaultOn);

@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSalesIngestion } from "@/hooks/useSalesIngestion";
 import { Upload, FileText, CheckCircle, AlertCircle, X } from "lucide-react";
 import { toast } from "sonner";
+import PosSyncSection from "@/components/settings/PosSyncSection";
 
 const ToggleRow = ({ label, defaultOn }: { label: string; defaultOn: boolean }) => {
   const [on, setOn] = useState(defaultOn);
@@ -341,10 +342,14 @@ const SettingsPage = () => {
             <SectionTitle>Restaurant</SectionTitle>
             <SettingsRow label="Name" value="Spice Route" />
             <SettingsRow label="Plan" value="Pro Monthly" />
-            <SettingsRow label="POS System" value="Petpooja" />
-            <SettingsRow label="POS Status" value="Connected ✓" />
-            <SettingsRow label="Last Sync" value="3 hours ago" />
           </div>
+
+          {/* POS Sync */}
+          <div>
+            <SectionTitle>POS Sync</SectionTitle>
+            <PosSyncSection />
+          </div>
+
 
           {/* Account */}
           <div>

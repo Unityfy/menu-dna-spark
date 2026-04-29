@@ -32,57 +32,91 @@ interface MenuItem {
   complexity: string;
 }
 
-const PEAK_HOURS = [12, 13, 19, 20, 21]; // lunch + dinner
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const HOURS_LABEL = (h: number) => `${h.toString().padStart(2, "0")}:00–${(h + 1).toString().padStart(2, "0")}:00`;
 
+// Kitchen Stress Score per spec: 40% prep / 30% volatility / 30% order frequency
 function computeStressScore(
-  prepTime: number,
-  complexity: string,
-  weeklyOrders: number,
-  peakConcentration: number,
-  totalMenuOrders: number
+  avgPrepMinutes: number,
+  prepVarianceRatio: number, // 0..1+ (std-dev / mean)
+  ordersPerHour: number,
+  peakOrdersPerHour: number
 ): number {
-  const complexityWeight = complexity === "high" ? 1.5 : complexity === "medium" ? 1.0 : 0.6;
-  const prepFactor = Math.min(prepTime / 45, 1) * 30; // 0-30
-  const volumeFactor = Math.min(weeklyOrders / totalMenuOrders * 5, 1) * 25; // 0-25
-  const peakFactor = (peakConcentration / 100) * 25; // 0-25
-  const complexityFactor = complexityWeight * 13; // 0-20
-  return Math.min(Math.round(prepFactor + volumeFactor + peakFactor + complexityFactor), 100);
+  const prepComponent = 0.40 * Math.min(avgPrepMinutes / 60, 1);
+  const volatilityComponent = 0.30 * Math.min(prepVarianceRatio, 1);
+  const freqComponent = 0.30 * (peakOrdersPerHour > 0 ? Math.min(ordersPerHour / peakOrdersPerHour, 1) : 0);
+  return Math.min(Math.round((prepComponent + volatilityComponent + freqComponent) * 100), 100);
 }
 
+function volatilityLabel(varianceRatio: number): "low" | "medium" | "high" {
+  if (varianceRatio < 0.15) return "low";
+  if (varianceRatio <= 0.30) return "medium";
+  return "high";
+}
+
+// Demand pattern label per spec
+function detectDemandPattern(byHour: Record<number, number>, byDay: Record<number, number>): string {
+  const totalHour = Object.values(byHour).reduce((a, b) => a + b, 0);
+  const totalDay = Object.values(byDay).reduce((a, b) => a + b, 0);
+  if (totalHour === 0) return "Consistent";
+
+  const lunchOrders = (byHour[12] || 0) + (byHour[13] || 0) + (byHour[14] || 0);
+  const dinnerOrders = (byHour[19] || 0) + (byHour[20] || 0) + (byHour[21] || 0);
+  const weekendOrders = (byDay[5] || 0) + (byDay[6] || 0) + (byDay[0] || 0); // Fri, Sat, Sun
+
+  const lunchPct = lunchOrders / totalHour;
+  const dinnerPct = dinnerOrders / totalHour;
+  const weekendPct = totalDay > 0 ? weekendOrders / totalDay : 0;
+
+  if (lunchPct > 0.5 && dinnerPct > 0.5) return "Lunch & Dinner Peak";
+  if (lunchPct > 0.5 && dinnerPct > 0.3) return "Lunch & Dinner Peak";
+  if (lunchPct > 0.5) return "Lunch Peak";
+  if (dinnerPct > 0.5) return "Dinner Peak";
+  if (weekendPct > 0.6) return "Weekend Heavy";
+  return "Consistent";
+}
+
+// Cannibalization per spec: co-occurrence × category similarity × price similarity
 function computeCannibalization(
-  dishSales: Map<string, { timestamps: Date[]; category: string }>,
+  dishMeta: Map<string, { timestamps: Date[]; category: string; price: number; menuItemId: string }>,
   dishName: string,
-  dishCategory: string
-): { score: number; competing: { dishId: string; dishName: string; overlapScore: number }[] } {
-  const mySales = dishSales.get(dishName);
-  if (!mySales || mySales.timestamps.length < 5) return { score: 0, competing: [] };
+  dishCategory: string,
+  dishPrice: number
+): { score: number; competing: { dishId: string; dishName: string; score: number }[] } {
+  const me = dishMeta.get(dishName);
+  if (!me || me.timestamps.length < 5) return { score: 0, competing: [] };
 
-  const competing: { dishId: string; dishName: string; overlapScore: number }[] = [];
+  const competing: { dishId: string; dishName: string; score: number }[] = [];
 
-  for (const [otherName, otherData] of dishSales.entries()) {
-    if (otherName === dishName || otherData.category !== dishCategory) continue;
-    if (otherData.timestamps.length < 5) continue;
+  for (const [otherName, other] of dishMeta.entries()) {
+    if (otherName === dishName) continue;
+    if (other.timestamps.length < 5) continue;
 
-    // Check temporal overlap: orders within 30min window
+    // Co-occurrence rate: orders within 30min window / my total orders
     let overlaps = 0;
-    for (const ts of mySales.timestamps) {
-      for (const ots of otherData.timestamps) {
+    for (const ts of me.timestamps) {
+      for (const ots of other.timestamps) {
         if (Math.abs(ts.getTime() - ots.getTime()) < 30 * 60 * 1000) {
           overlaps++;
           break;
         }
       }
     }
-    const overlapScore = Math.round((overlaps / mySales.timestamps.length) * 100);
-    if (overlapScore > 30) {
-      competing.push({ dishId: otherName, dishName: otherName, overlapScore });
+    const coOccurrence = overlaps / me.timestamps.length; // 0..1
+    const categorySimilarity = other.category === dishCategory ? 1 : 0.2;
+    const maxPrice = Math.max(dishPrice, other.price, 1);
+    const priceSimilarity = 1 - Math.abs(dishPrice - other.price) / maxPrice; // 0..1
+
+    const score = coOccurrence * categorySimilarity * priceSimilarity; // 0..1
+    if (score > 0.3) {
+      competing.push({ dishId: other.menuItemId, dishName: otherName, score: Math.round(score * 100) / 100 });
     }
   }
 
-  const maxOverlap = competing.length > 0 ? Math.max(...competing.map((c) => c.overlapScore)) : 0;
-  return { score: maxOverlap, competing: competing.sort((a, b) => b.overlapScore - a.overlapScore).slice(0, 3) };
+  competing.sort((a, b) => b.score - a.score);
+  const topScore = competing.length > 0 ? competing[0].score : 0;
+  // Persist as 0..100 to keep parity with existing UI consumers
+  return { score: Math.round(topScore * 100), competing: competing.slice(0, 3) };
 }
 
 function classify(
@@ -179,7 +213,7 @@ Deno.serve(async (req) => {
 
     // Build per-dish sales aggregation
     const dishSalesMap = new Map<string, SaleRow[]>();
-    const dishTimestamps = new Map<string, { timestamps: Date[]; category: string }>();
+    const dishMeta = new Map<string, { timestamps: Date[]; category: string; price: number; menuItemId: string }>();
 
     for (const sale of (sales || [])) {
       const name = sale.dish_name;
@@ -187,13 +221,11 @@ Deno.serve(async (req) => {
       dishSalesMap.get(name)!.push(sale as SaleRow);
     }
 
-    // Map menu items to their sales
     const totalMenuOrders = (sales || []).reduce((sum, s) => sum + (s.quantity_sold || 1), 0);
     const WEEKS = 4;
 
     const profiles: any[] = [];
 
-    // Pre-compute averages
     let marginSum = 0;
     let orderSum = 0;
     const menuItemMetrics: { item: MenuItem; margin: number; orders: number }[] = [];
@@ -206,41 +238,41 @@ Deno.serve(async (req) => {
       orderSum += totalQty / WEEKS;
       menuItemMetrics.push({ item, margin, orders: totalQty / WEEKS });
 
-      // Build timestamps map for cannibalization
-      dishTimestamps.set(item.name, {
+      dishMeta.set(item.name, {
         timestamps: itemSales.map((s) => new Date(s.order_timestamp)),
         category: item.category,
+        price: item.selling_price,
+        menuItemId: item.id,
       });
     }
 
     const avgMargin = menuItems.length > 0 ? marginSum / menuItems.length : 50;
     const avgOrders = menuItems.length > 0 ? orderSum / menuItems.length : 50;
 
-    // Compute each dish profile
-    for (const { item, margin, orders } of menuItemMetrics) {
+    // Peak orders-per-hour across full menu (for stress normalization)
+    const menuHourBuckets: Record<string, number> = {};
+    for (const s of (sales || [])) {
+      const dt = new Date(s.order_timestamp);
+      const k = `${dt.toISOString().slice(0, 10)}|${dt.getHours()}`;
+      menuHourBuckets[k] = (menuHourBuckets[k] || 0) + (s.quantity_sold || 1);
+    }
+    const peakOrdersPerHourMenu = Math.max(1, ...Object.values(menuHourBuckets));
+    const observedHours = Math.max(WEEKS * 7 * 12, 1); // ~12 service hrs/day
+
+    for (const { item } of menuItemMetrics) {
       const itemSales = dishSalesMap.get(item.name) || [];
       const totalQty = itemSales.reduce((s, r) => s + (r.quantity_sold || 1), 0);
       const weeklyOrders = Math.round(totalQty / WEEKS);
-      const weeklyRevenue = Math.round((itemSales.reduce((s, r) => s + r.selling_price * (r.quantity_sold || 1), 0)) / WEEKS);
-      const weeklyProfit = Math.round(weeklyRevenue * (margin / 100));
+
+      // --- PROFIT DNA (per spec) ---
+      const profitMargin = item.selling_price > 0
+        ? ((item.selling_price - item.food_cost) / item.selling_price) * 100
+        : 0;
+      const weeklyProfit = Math.round((item.selling_price - item.food_cost) * weeklyOrders);
+      const weeklyRevenue = Math.round(item.selling_price * weeklyOrders);
       const profitContribution = weeklyProfit;
 
-      // Peak hour concentration
-      const peakOrders = itemSales.filter((s) => {
-        const h = new Date(s.order_timestamp).getHours();
-        return PEAK_HOURS.includes(h);
-      }).reduce((s, r) => s + (r.quantity_sold || 1), 0);
-      const peakConcentration = totalQty > 0 ? Math.round((peakOrders / totalQty) * 100) : 0;
-
-      // Volume pressure
-      const volumePressure = totalMenuOrders > 0 ? Math.round((totalQty / totalMenuOrders) * 100) : 0;
-
-      // Stress score
-      const stressScore = computeStressScore(
-        item.prep_time_minutes, item.complexity, weeklyOrders, peakConcentration, Math.max(totalMenuOrders / WEEKS, 1)
-      );
-
-      // Prep time volatility (simulate from order count variance across days)
+      // --- PREP TIME VOLATILITY (std-dev / mean) ---
       const dailyOrders = new Map<string, number>();
       for (const s of itemSales) {
         const day = new Date(s.order_timestamp).toISOString().slice(0, 10);
@@ -251,12 +283,22 @@ Deno.serve(async (req) => {
       const variance = dailyCounts.length > 1
         ? dailyCounts.reduce((s, v) => s + Math.pow(v - avgDaily, 2), 0) / dailyCounts.length
         : 0;
-      const volatility = avgDaily > 0 ? Math.round((Math.sqrt(variance) / avgDaily) * 100) : 0;
+      const varianceRatio = avgDaily > 0 ? Math.sqrt(variance) / avgDaily : 0;
+      const volatility = Math.round(varianceRatio * 100);
+      const volLabel = volatilityLabel(varianceRatio);
 
-      // Demand spikes (days with >2x average)
+      // --- KITCHEN STRESS SCORE (40/30/30 per spec) ---
+      const ordersPerHour = totalQty / observedHours;
+      const stressScore = computeStressScore(
+        item.prep_time_minutes,
+        varianceRatio,
+        ordersPerHour,
+        peakOrdersPerHourMenu / observedHours
+      );
+
       const spikeFreq = dailyCounts.filter((c) => c > avgDaily * 2).length;
 
-      // Demand trend (compare first 2 weeks vs last 2 weeks)
+      // Demand trend
       const midpoint = new Date(fourWeeksAgo.getTime() + 14 * 24 * 60 * 60 * 1000);
       const firstHalf = itemSales.filter((s) => new Date(s.order_timestamp) < midpoint)
         .reduce((sum, s) => sum + (s.quantity_sold || 1), 0);
@@ -278,13 +320,17 @@ Deno.serve(async (req) => {
         byDay[dt.getDay()] = (byDay[dt.getDay()] || 0) + (s.quantity_sold || 1);
       }
 
-      // Top peak hours and days
       const sortedHours = Object.entries(byHour).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 2);
       const sortedDays = Object.entries(byDay).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 3);
       const peakHours = sortedHours.map(([h]) => HOURS_LABEL(Number(h)));
       const peakDays = sortedDays.map(([d]) => DAYS[Number(d)]);
 
-      // Normalize order type to percentages
+      const peakOrders = (byHour[12] || 0) + (byHour[13] || 0) + (byHour[19] || 0) + (byHour[20] || 0) + (byHour[21] || 0);
+      const peakConcentration = totalQty > 0 ? Math.round((peakOrders / totalQty) * 100) : 0;
+      const volumePressure = totalMenuOrders > 0 ? Math.round((totalQty / totalMenuOrders) * 100) : 0;
+
+      const patternLabel = detectDemandPattern(byHour, byDay);
+
       const totalByType = Object.values(byOrderType).reduce((a, b) => a + b, 0) || 1;
       const orderTypePercent = {
         "dine-in": Math.round((byOrderType["dine-in"] / totalByType) * 100),
@@ -292,19 +338,14 @@ Deno.serve(async (req) => {
         delivery: Math.round((byOrderType["delivery"] / totalByType) * 100),
       };
 
-      // Cannibalization
-      const cannibal = computeCannibalization(dishTimestamps, item.name, item.category);
-
-      // Classification
-      const cls = classify(margin, stressScore, weeklyOrders, avgMargin, avgOrders);
-
-      // Risk flags
-      const riskFlags = computeRiskFlags(margin, stressScore, demandTrend, cannibal.score, avgMargin);
+      const cannibal = computeCannibalization(dishMeta, item.name, item.category, item.selling_price);
+      const cls = classify(profitMargin, stressScore, weeklyOrders, avgMargin, avgOrders);
+      const riskFlags = computeRiskFlags(profitMargin, stressScore, demandTrend, cannibal.score, avgMargin);
 
       profiles.push({
         menu_item_id: item.id,
         restaurant_id: restaurantId,
-        true_margin: Math.round(margin * 100) / 100,
+        true_margin: Math.round(profitMargin * 100) / 100,
         profit_contribution: profitContribution,
         weekly_revenue: weeklyRevenue,
         weekly_profit: weeklyProfit,
@@ -314,7 +355,15 @@ Deno.serve(async (req) => {
         volume_pressure: volumePressure,
         prep_time_volatility: volatility,
         demand_spike_frequency: spikeFreq,
-        demand_pattern: { byOrderType: orderTypePercent, peakDays, peakHours },
+        demand_pattern: {
+          label: patternLabel,
+          volatility_label: volLabel,
+          byOrderType: orderTypePercent,
+          peakDays,
+          peakHours,
+          byHour,
+          byDay,
+        },
         demand_trend: demandTrend,
         cannibalization_score: cannibal.score,
         competing_dishes: cannibal.competing,

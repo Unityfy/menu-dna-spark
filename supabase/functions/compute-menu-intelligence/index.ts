@@ -223,6 +223,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // High-risk distribution (% flag)
+    const highRiskCount = typedProfiles.filter(
+      (p) => p.classification === "hidden-loss" || p.classification === "kitchen-disruptor"
+    ).length;
+    const highRiskPct = Math.round((highRiskCount / typedProfiles.length) * 100);
+    riskSummary.high_risk_pct = highRiskPct;
+    riskSummary.high_risk_alert = highRiskPct > 20 ? 1 : 0;
+
+    // Category performance
+    const categoryPerformance = computeCategoryPerformance(typedProfiles, menuMap);
+
     // Week boundaries (current week Mon-Sun)
     const now = new Date();
     const dayOfWeek = now.getDay();
@@ -265,6 +276,7 @@ Deno.serve(async (req) => {
       low_impact_items: lowImpact,
       classification_breakdown: classBreakdown,
       risk_summary: riskSummary,
+      category_performance: categoryPerformance,
       computed_at: now.toISOString(),
     };
 

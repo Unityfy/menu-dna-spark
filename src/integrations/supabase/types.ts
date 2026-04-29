@@ -211,6 +211,7 @@ export type Database = {
         Row: {
           avg_margin: number
           avg_stress: number
+          category_performance: Json
           classification_breakdown: Json
           computed_at: string
           created_at: string
@@ -232,6 +233,7 @@ export type Database = {
         Insert: {
           avg_margin?: number
           avg_stress?: number
+          category_performance?: Json
           classification_breakdown?: Json
           computed_at?: string
           created_at?: string
@@ -253,6 +255,7 @@ export type Database = {
         Update: {
           avg_margin?: number
           avg_stress?: number
+          category_performance?: Json
           classification_breakdown?: Json
           computed_at?: string
           created_at?: string

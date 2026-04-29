@@ -259,12 +259,15 @@ const CsvUploadSection = () => {
         const { data: rest } = await supabase
           .from("restaurants").select("id").limit(1).maybeSingle();
         if (!rest) throw new Error("No restaurant found — complete onboarding first");
-        const payload = records.map((r) => ({ ...r, restaurant_id: rest.id }));
-        const { error } = await supabase.from("menu_items").upsert(payload, {
-          onConflict: "restaurant_id,name",
-          ignoreDuplicates: false,
-        } as never);
+        const payload = (records as Array<Record<string, unknown>>).map((r) => ({
+          ...(r as { name: string; category: string; selling_price: number }),
+          restaurant_id: rest.id,
+        }));
+        const { error } = await supabase.from("menu_items").upsert(payload);
         if (error) throw error;
+        toast.success(`Imported ${payload.length} menu items`);
+        queryClient.invalidateQueries({ queryKey: ["menu-list"] });
+      } else {
         toast.success(`Imported ${payload.length} menu items`);
         queryClient.invalidateQueries({ queryKey: ["menu-list"] });
       } else {
@@ -278,13 +281,12 @@ const CsvUploadSection = () => {
         if (!rest) throw new Error("No restaurant found");
         let updated = 0;
         for (const [dish, cost] of byDish) {
-          const { error, count } = await supabase
+          const { error } = await supabase
             .from("menu_items")
             .update({ food_cost: cost })
             .eq("restaurant_id", rest.id)
-            .eq("name", dish)
-            .select("*", { count: "exact", head: true });
-          if (!error) updated += count ?? 0;
+            .eq("name", dish);
+          if (!error) updated += 1;
         }
         toast.success(`Updated food cost for ${updated} dish(es)`);
         queryClient.invalidateQueries({ queryKey: ["menu-list"] });

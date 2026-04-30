@@ -267,30 +267,49 @@ function generateRecommendations(
     }
 
     // --- LEARNING FILTER ---
-    // Skip recommendations that the user has ignored 3+ times for this dish+type
-    // Suppress recommendation types that have been consistently ineffective (avg score < 0.3 with 3+ data points)
+    // Apply both outcome-based learning AND weekly learning_parameters refinements.
     for (const candidate of candidates) {
       const dishTypeKey = `${p.menu_item_id}:${candidate.type}`;
+      const lp = learning.params.get(candidate.type);
 
-      // Skip if ignored too many times for this specific dish
+      // 1. Hard suppress if weekly learning job marked this type suppressed (<30% approval over 8+ weeks)
+      if (lp?.suppressed) continue;
+
+      // 2. Skip if ignored too many times for this specific dish
       const ignores = learning.ignoreCount.get(dishTypeKey) || 0;
       if (ignores >= 3) continue;
 
-      // Suppress types that are proven ineffective for this restaurant
+      // 3. Suppress types that are proven ineffective for this restaurant
       const typeStats = learning.typeEffectiveness.get(candidate.type);
       if (typeStats && typeStats.count >= 3 && typeStats.avg < 0.3) continue;
 
-      // Demote (but don't skip) types with poor track record — lower expected impact by 30%
+      // 4. Threshold gating: types with low approval need stronger signals to fire.
+      //    We approximate this by gating on the magnitude of the candidate's expected profit impact
+      //    relative to the dish's weekly profit, scaled by the type's threshold multiplier.
+      const thresholdMult = lp?.threshold_multiplier ?? 1.0;
+      if (thresholdMult > 1.0) {
+        const baseline = Math.max(1, Math.abs(p.weekly_profit) * 0.05); // 5% of weekly profit
+        const required = baseline * thresholdMult;
+        if (Math.abs(candidate.rec.expected_profit_impact) < required) continue;
+      }
+
+      // 5. Demote (but don't skip) dish+types with poor track record — lower expected impact by 30%
       const ineffective = learning.ineffectiveCount.get(dishTypeKey) || 0;
       if (ineffective >= 2) {
         candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * 0.7);
         candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * 0.7);
       }
 
-      // Boost types with strong track record (avg effectiveness > 1.0 with 3+ samples)
+      // 6. Boost types with strong track record (avg effectiveness > 1.0 with 3+ samples)
       if (typeStats && typeStats.count >= 3 && typeStats.avg > 1.0) {
         candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * 1.2);
         candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * 1.2);
+      }
+
+      // 7. Apply learned impact adjustments (predictions calibrated against actuals)
+      if (lp) {
+        candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * lp.impact_revenue);
+        candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * lp.impact_profit);
       }
 
       recs.push({ ...candidate.rec, priority: priority++ });

@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.weekly-recommendations-batch]
 verify_jwt = false
+
+[functions.weekly-learning-job]
+verify_jwt = false

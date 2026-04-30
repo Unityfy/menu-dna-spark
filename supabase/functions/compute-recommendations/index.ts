@@ -330,14 +330,31 @@ async function buildLearningContext(
   const typeEffectiveness = new Map<string, { avg: number; count: number }>();
   const ignoreCount = new Map<string, number>();
   const ineffectiveCount = new Map<string, number>();
+  const params = new Map<string, { suppressed: boolean; threshold_multiplier: number; impact_revenue: number; impact_profit: number }>();
 
-  // Fetch all measured outcomes for this restaurant
-  const { data: outcomes } = await supabase
-    .from("recommendation_outcomes")
-    .select("menu_item_id, recommendation_type, action_taken, effectiveness_score")
-    .eq("restaurant_id", restaurantId);
+  // Fetch outcomes + learning_parameters in parallel
+  const [outcomesRes, paramsRes] = await Promise.all([
+    supabase
+      .from("recommendation_outcomes")
+      .select("menu_item_id, recommendation_type, action_taken, effectiveness_score")
+      .eq("restaurant_id", restaurantId),
+    supabase
+      .from("learning_parameters")
+      .select("recommendation_type, suppressed, generation_threshold_multiplier, impact_adjustment_revenue, impact_adjustment_profit")
+      .eq("restaurant_id", restaurantId),
+  ]);
 
-  if (!outcomes) return { typeEffectiveness, ignoreCount, ineffectiveCount };
+  for (const lp of paramsRes.data || []) {
+    params.set(lp.recommendation_type, {
+      suppressed: !!lp.suppressed,
+      threshold_multiplier: Number(lp.generation_threshold_multiplier) || 1.0,
+      impact_revenue: Number(lp.impact_adjustment_revenue) || 1.0,
+      impact_profit: Number(lp.impact_adjustment_profit) || 1.0,
+    });
+  }
+
+  const outcomes = outcomesRes.data;
+  if (!outcomes) return { typeEffectiveness, ignoreCount, ineffectiveCount, params };
 
   // Aggregate type-level effectiveness (only from measured outcomes)
   const typeAgg = new Map<string, number[]>();
@@ -364,7 +381,7 @@ async function buildLearningContext(
     typeEffectiveness.set(type, { avg, count: scores.length });
   }
 
-  return { typeEffectiveness, ignoreCount, ineffectiveCount };
+  return { typeEffectiveness, ignoreCount, ineffectiveCount, params };
 }
 
 Deno.serve(async (req) => {

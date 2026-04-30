@@ -67,6 +67,13 @@ interface LearningContext {
   ignoreCount: Map<string, number>;
   // Number of times a dish+type combo was approved but ineffective (score < 0.3)
   ineffectiveCount: Map<string, number>;
+  // Per-type learning parameters from the weekly learning job
+  params: Map<string, {
+    suppressed: boolean;
+    threshold_multiplier: number;
+    impact_revenue: number;
+    impact_profit: number;
+  }>;
 }
 
 function generateRecommendations(
@@ -260,30 +267,49 @@ function generateRecommendations(
     }
 
     // --- LEARNING FILTER ---
-    // Skip recommendations that the user has ignored 3+ times for this dish+type
-    // Suppress recommendation types that have been consistently ineffective (avg score < 0.3 with 3+ data points)
+    // Apply both outcome-based learning AND weekly learning_parameters refinements.
     for (const candidate of candidates) {
       const dishTypeKey = `${p.menu_item_id}:${candidate.type}`;
+      const lp = learning.params.get(candidate.type);
 
-      // Skip if ignored too many times for this specific dish
+      // 1. Hard suppress if weekly learning job marked this type suppressed (<30% approval over 8+ weeks)
+      if (lp?.suppressed) continue;
+
+      // 2. Skip if ignored too many times for this specific dish
       const ignores = learning.ignoreCount.get(dishTypeKey) || 0;
       if (ignores >= 3) continue;
 
-      // Suppress types that are proven ineffective for this restaurant
+      // 3. Suppress types that are proven ineffective for this restaurant
       const typeStats = learning.typeEffectiveness.get(candidate.type);
       if (typeStats && typeStats.count >= 3 && typeStats.avg < 0.3) continue;
 
-      // Demote (but don't skip) types with poor track record — lower expected impact by 30%
+      // 4. Threshold gating: types with low approval need stronger signals to fire.
+      //    We approximate this by gating on the magnitude of the candidate's expected profit impact
+      //    relative to the dish's weekly profit, scaled by the type's threshold multiplier.
+      const thresholdMult = lp?.threshold_multiplier ?? 1.0;
+      if (thresholdMult > 1.0) {
+        const baseline = Math.max(1, Math.abs(p.weekly_profit) * 0.05); // 5% of weekly profit
+        const required = baseline * thresholdMult;
+        if (Math.abs(candidate.rec.expected_profit_impact) < required) continue;
+      }
+
+      // 5. Demote (but don't skip) dish+types with poor track record — lower expected impact by 30%
       const ineffective = learning.ineffectiveCount.get(dishTypeKey) || 0;
       if (ineffective >= 2) {
         candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * 0.7);
         candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * 0.7);
       }
 
-      // Boost types with strong track record (avg effectiveness > 1.0 with 3+ samples)
+      // 6. Boost types with strong track record (avg effectiveness > 1.0 with 3+ samples)
       if (typeStats && typeStats.count >= 3 && typeStats.avg > 1.0) {
         candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * 1.2);
         candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * 1.2);
+      }
+
+      // 7. Apply learned impact adjustments (predictions calibrated against actuals)
+      if (lp) {
+        candidate.rec.expected_revenue_impact = Math.round(candidate.rec.expected_revenue_impact * lp.impact_revenue);
+        candidate.rec.expected_profit_impact = Math.round(candidate.rec.expected_profit_impact * lp.impact_profit);
       }
 
       recs.push({ ...candidate.rec, priority: priority++ });
@@ -304,14 +330,31 @@ async function buildLearningContext(
   const typeEffectiveness = new Map<string, { avg: number; count: number }>();
   const ignoreCount = new Map<string, number>();
   const ineffectiveCount = new Map<string, number>();
+  const params = new Map<string, { suppressed: boolean; threshold_multiplier: number; impact_revenue: number; impact_profit: number }>();
 
-  // Fetch all measured outcomes for this restaurant
-  const { data: outcomes } = await supabase
-    .from("recommendation_outcomes")
-    .select("menu_item_id, recommendation_type, action_taken, effectiveness_score")
-    .eq("restaurant_id", restaurantId);
+  // Fetch outcomes + learning_parameters in parallel
+  const [outcomesRes, paramsRes] = await Promise.all([
+    supabase
+      .from("recommendation_outcomes")
+      .select("menu_item_id, recommendation_type, action_taken, effectiveness_score")
+      .eq("restaurant_id", restaurantId),
+    supabase
+      .from("learning_parameters")
+      .select("recommendation_type, suppressed, generation_threshold_multiplier, impact_adjustment_revenue, impact_adjustment_profit")
+      .eq("restaurant_id", restaurantId),
+  ]);
 
-  if (!outcomes) return { typeEffectiveness, ignoreCount, ineffectiveCount };
+  for (const lp of paramsRes.data || []) {
+    params.set(lp.recommendation_type, {
+      suppressed: !!lp.suppressed,
+      threshold_multiplier: Number(lp.generation_threshold_multiplier) || 1.0,
+      impact_revenue: Number(lp.impact_adjustment_revenue) || 1.0,
+      impact_profit: Number(lp.impact_adjustment_profit) || 1.0,
+    });
+  }
+
+  const outcomes = outcomesRes.data;
+  if (!outcomes) return { typeEffectiveness, ignoreCount, ineffectiveCount, params };
 
   // Aggregate type-level effectiveness (only from measured outcomes)
   const typeAgg = new Map<string, number[]>();
@@ -338,7 +381,7 @@ async function buildLearningContext(
     typeEffectiveness.set(type, { avg, count: scores.length });
   }
 
-  return { typeEffectiveness, ignoreCount, ineffectiveCount };
+  return { typeEffectiveness, ignoreCount, ineffectiveCount, params };
 }
 
 Deno.serve(async (req) => {

@@ -157,6 +157,63 @@ export type Database = {
           },
         ]
       }
+      learning_parameters: {
+        Row: {
+          approval_rate: number
+          avg_prediction_error_profit: number | null
+          avg_prediction_error_revenue: number | null
+          avg_prediction_error_stress: number | null
+          created_at: string
+          generation_threshold_multiplier: number
+          id: string
+          impact_adjustment_profit: number
+          impact_adjustment_revenue: number
+          last_updated: string
+          recommendation_type: string
+          restaurant_id: string
+          restaurant_preferences: Json
+          sample_size: number
+          suppressed: boolean
+          weeks_analyzed: number
+        }
+        Insert: {
+          approval_rate?: number
+          avg_prediction_error_profit?: number | null
+          avg_prediction_error_revenue?: number | null
+          avg_prediction_error_stress?: number | null
+          created_at?: string
+          generation_threshold_multiplier?: number
+          id?: string
+          impact_adjustment_profit?: number
+          impact_adjustment_revenue?: number
+          last_updated?: string
+          recommendation_type: string
+          restaurant_id: string
+          restaurant_preferences?: Json
+          sample_size?: number
+          suppressed?: boolean
+          weeks_analyzed?: number
+        }
+        Update: {
+          approval_rate?: number
+          avg_prediction_error_profit?: number | null
+          avg_prediction_error_revenue?: number | null
+          avg_prediction_error_stress?: number | null
+          created_at?: string
+          generation_threshold_multiplier?: number
+          id?: string
+          impact_adjustment_profit?: number
+          impact_adjustment_revenue?: number
+          last_updated?: string
+          recommendation_type?: string
+          restaurant_id?: string
+          restaurant_preferences?: Json
+          sample_size?: number
+          suppressed?: boolean
+          weeks_analyzed?: number
+        }
+        Relationships: []
+      }
       menu_data: {
         Row: {
           category: string | null

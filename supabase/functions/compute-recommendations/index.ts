@@ -67,6 +67,13 @@ interface LearningContext {
   ignoreCount: Map<string, number>;
   // Number of times a dish+type combo was approved but ineffective (score < 0.3)
   ineffectiveCount: Map<string, number>;
+  // Per-type learning parameters from the weekly learning job
+  params: Map<string, {
+    suppressed: boolean;
+    threshold_multiplier: number;
+    impact_revenue: number;
+    impact_profit: number;
+  }>;
 }
 
 function generateRecommendations(

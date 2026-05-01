@@ -1,5 +1,8 @@
-import { Upload, Plug, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Upload, Plug, Check, Loader2, FileText } from "lucide-react";
 import { OnboardingData, POS_SYSTEMS } from "./types";
+import { useSalesIngestion } from "@/hooks/useSalesIngestion";
+import { toast } from "sonner";
 
 interface Props {
   data: OnboardingData;
@@ -27,7 +30,30 @@ const downloadCsvTemplate = () => {
   URL.revokeObjectURL(url);
 };
 
-const StepDataSource = ({ data, onChange }: Props) => (
+const StepDataSource = ({ data, onChange }: Props) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { uploadCSV, uploading } = useSalesIngestion();
+
+  const handleFile = (file: File | null | undefined) => {
+    if (!file) return;
+    const isCsv = /\.(csv|xlsx)$/i.test(file.name);
+    if (!isCsv) {
+      toast.error("Please upload a .csv or .xlsx file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File exceeds 10MB limit");
+      return;
+    }
+    setSelectedFile(file);
+    uploadCSV(file);
+  };
+
+  const openPicker = () => fileInputRef.current?.click();
+
+  return (
   <div className="space-y-5">
     <p className="text-xs text-muted-foreground leading-relaxed">
       Menu DNA reads your sales data in read-only mode — we never modify your POS. Choose how you'd like to share data.
@@ -81,15 +107,67 @@ const StepDataSource = ({ data, onChange }: Props) => (
 
     {data.dataSource === "csv" && (
       <div className="space-y-4 pt-2">
-        <div className="rounded-md border border-dashed border-border bg-secondary/30 p-6 text-center space-y-3">
-          <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.xlsx"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0])}
+        />
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={openPicker}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openPicker();
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            handleFile(e.dataTransfer.files?.[0]);
+          }}
+          className={`cursor-pointer rounded-md border border-dashed p-6 text-center space-y-3 transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
+            dragOver
+              ? "border-foreground bg-foreground/5"
+              : "border-border bg-secondary/30 hover:border-muted-foreground hover:bg-secondary/50"
+          }`}
+        >
+          {uploading ? (
+            <Loader2 className="h-8 w-8 mx-auto text-muted-foreground animate-spin" />
+          ) : selectedFile ? (
+            <FileText className="h-8 w-8 mx-auto text-foreground" />
+          ) : (
+            <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+          )}
           <div>
-            <p className="text-sm text-foreground">Drop your CSV file here</p>
+            <p className="text-sm text-foreground">
+              {uploading
+                ? "Uploading…"
+                : selectedFile
+                ? selectedFile.name
+                : "Drop your CSV file here or click to browse"}
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
               Accepted: .csv, .xlsx — Max 10MB
             </p>
           </div>
-          <button className="rounded-md bg-secondary border border-border px-4 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openPicker();
+            }}
+            disabled={uploading}
+            className="rounded-md bg-secondary border border-border px-4 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-40"
+          >
             Browse Files
           </button>
         </div>
@@ -106,7 +184,8 @@ const StepDataSource = ({ data, onChange }: Props) => (
       </div>
     )}
   </div>
-);
+  );
+};
 
 const SourceCard = ({
   icon,

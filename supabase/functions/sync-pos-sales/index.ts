@@ -45,22 +45,57 @@ async function fetchOrdersFromPos(provider: string | null, since: Date): Promise
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
+    supabaseUrl,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
   try {
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const restaurantId: string | undefined = body.restaurant_id;
+    // AuthN/AuthZ — accept either a valid user JWT (user-triggered "Sync Now")
+    // or a CRON_SECRET header (scheduled job). Reject everything else.
+    const authHeader = req.headers.get("Authorization");
+    const cronSecretHeader = req.headers.get("x-cron-secret");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isCron = !!cronSecret && cronSecretHeader === cronSecret;
 
-    // If no restaurant_id provided (cron), iterate all restaurants
+    let userScopedRestaurantId: string | null = null;
+
+    if (!isCron) {
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims?.sub) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const userId = claimsData.claims.sub as string;
+      const { data: rid, error: ridError } = await supabase.rpc("get_user_restaurant_id", { _user_id: userId });
+      if (ridError || !rid) {
+        return new Response(JSON.stringify({ error: "No restaurant for user" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userScopedRestaurantId = rid as string;
+    }
+
+    // Build target list. User-triggered = only their own restaurant.
+    // Cron = all restaurants.
     const targets: { id: string; pos_provider: string | null; last_synced_at: string | null }[] = [];
-    if (restaurantId) {
+    if (userScopedRestaurantId) {
       const { data, error } = await supabase
         .from("restaurants")
         .select("id, pos_provider, last_synced_at")
-        .eq("id", restaurantId)
+        .eq("id", userScopedRestaurantId)
         .maybeSingle();
       if (error) throw error;
       if (data) targets.push(data);

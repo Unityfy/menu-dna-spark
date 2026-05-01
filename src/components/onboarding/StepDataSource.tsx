@@ -1,5 +1,8 @@
-import { Upload, Plug, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Upload, Plug, Check, Loader2, FileText } from "lucide-react";
 import { OnboardingData, POS_SYSTEMS } from "./types";
+import { useSalesIngestion } from "@/hooks/useSalesIngestion";
+import { toast } from "sonner";
 
 interface Props {
   data: OnboardingData;

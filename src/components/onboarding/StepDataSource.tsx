@@ -77,7 +77,13 @@ const StepDataSource = ({ data, onChange }: Props) => (
         </div>
         <p className="text-xs text-muted-foreground/60 italic">
           Need a template?{" "}
-          <button className="underline hover:text-foreground transition-colors">Download CSV template</button>
+          <button
+            type="button"
+            onClick={downloadCsvTemplate}
+            className="underline hover:text-foreground transition-colors"
+          >
+            Download CSV template
+          </button>
         </p>
       </div>
     )}

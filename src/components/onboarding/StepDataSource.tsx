@@ -9,6 +9,24 @@ interface Props {
 const inputClass =
   "w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors";
 
+const downloadCsvTemplate = () => {
+  const headers = ["dish_name", "dish_id", "quantity_sold", "selling_price", "order_timestamp", "order_type"];
+  const sample = [
+    ["Margherita Pizza", "PZ001", "2", "12.50", "2026-01-15T19:30:00", "dine_in"],
+    ["Caesar Salad", "SL002", "1", "8.00", "2026-01-15T19:32:00", "takeaway"],
+  ];
+  const csv = [headers.join(","), ...sample.map((r) => r.join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "menu-dna-sales-template.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 const StepDataSource = ({ data, onChange }: Props) => (
   <div className="space-y-5">
     <p className="text-xs text-muted-foreground leading-relaxed">

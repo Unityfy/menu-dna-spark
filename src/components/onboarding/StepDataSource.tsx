@@ -30,7 +30,30 @@ const downloadCsvTemplate = () => {
   URL.revokeObjectURL(url);
 };
 
-const StepDataSource = ({ data, onChange }: Props) => (
+const StepDataSource = ({ data, onChange }: Props) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { uploadCSV, uploading } = useSalesIngestion();
+
+  const handleFile = (file: File | null | undefined) => {
+    if (!file) return;
+    const isCsv = /\.(csv|xlsx)$/i.test(file.name);
+    if (!isCsv) {
+      toast.error("Please upload a .csv or .xlsx file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File exceeds 10MB limit");
+      return;
+    }
+    setSelectedFile(file);
+    uploadCSV(file);
+  };
+
+  const openPicker = () => fileInputRef.current?.click();
+
+  return (
   <div className="space-y-5">
     <p className="text-xs text-muted-foreground leading-relaxed">
       Menu DNA reads your sales data in read-only mode — we never modify your POS. Choose how you'd like to share data.

@@ -21,15 +21,15 @@ interface RawSalesRecord {
   order_type?: string;
 }
 
-const VALID_ORDER_TYPES = ["dine-in", "takeaway", "delivery"];
+const VALID_ORDER_TYPES = ["dine_in", "takeaway", "delivery"];
 
 function normalizeOrderType(raw?: string): string {
-  if (!raw) return "dine-in";
+  if (!raw) return "dine_in";
   const lower = raw.toLowerCase().trim();
-  if (lower === "dinein" || lower === "dine_in" || lower === "dine-in" || lower === "dine in") return "dine-in";
+  if (lower === "dinein" || lower === "dine_in" || lower === "dine-in" || lower === "dine in") return "dine_in";
   if (lower === "takeaway" || lower === "take_away" || lower === "take-away" || lower === "take away" || lower === "pickup" || lower === "pick_up") return "takeaway";
   if (lower === "delivery" || lower === "deliver") return "delivery";
-  return "dine-in";
+  return "dine_in";
 }
 
 function sanitizeValue(val: string): string {

@@ -184,24 +184,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Batch insert sales in chunks of 500
+    // Batch insert sales in chunks of 500. Track actual successful inserts.
     const CHUNK = 500;
+    let actuallyInserted = 0;
     for (let i = 0; i < imported.length; i += CHUNK) {
       const chunk = imported.slice(i, i + CHUNK);
       const { error: insertErr } = await supabase.from("sales_transactions").insert(chunk);
       if (insertErr) {
         console.error("Insert error:", insertErr);
         errors.push(`Batch insert error at offset ${i}: ${insertErr.message}`);
+      } else {
+        actuallyInserted += chunk.length;
       }
     }
+
+    const skipped = records.length - actuallyInserted;
+    const status = actuallyInserted === 0 ? "failed" : (errors.length > 0 ? "partial" : "completed");
 
     // Update ingestion log
     await supabase
       .from("ingestion_logs")
       .update({
-        status: errors.length > 0 && imported.length === 0 ? "failed" : "completed",
-        records_imported: imported.length,
-        records_skipped: records.length - imported.length,
+        status,
+        records_imported: actuallyInserted,
+        records_skipped: skipped,
         error_message: errors.length > 0 ? errors.slice(0, 10).join("; ") : null,
         completed_at: new Date().toISOString(),
       })
@@ -209,10 +215,10 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        success: true,
+        success: actuallyInserted > 0,
         total: records.length,
-        imported: imported.length,
-        skipped: records.length - imported.length,
+        imported: actuallyInserted,
+        skipped,
         errors: errors.slice(0, 10),
         ingestion_log_id: log!.id,
       }),

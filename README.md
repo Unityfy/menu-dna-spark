@@ -1,73 +1,130 @@
-# Welcome to your Lovable project
+# Menu DNA
 
-## Project info
+Menu DNA is a subscription-based SaaS platform that transforms a restaurant's static menu into a continuously evolving, data-driven decision system. It analyzes menu performance by combining sales, cost, prep effort, and demand behavior to generate actionable weekly optimization recommendations.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Overview
 
-## How can I edit this code?
+Restaurant owners upload POS sales data or connect their POS system. Menu DNA normalizes the data, computes dish-level intelligence (profitability, kitchen stress, demand patterns), and produces a weekly action plan with prioritized recommendations. A built-in learning system adapts to which recommendations users approve or ignore, improving relevance over time.
 
-There are several ways of editing your application.
+## Target Audience
 
-**Use Lovable**
+- Restaurant owners
+- Restaurant managers
+- Multi-outlet food business operators
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Core Capabilities
 
-Changes made via Lovable will be committed automatically to this repo.
+- **POS Data Ingestion** — CSV upload or direct POS sync with automatic normalization
+- **Dish DNA Profiling** — Per-dish analysis of profitability, prep volatility, demand patterns, and kitchen stress
+- **Menu Intelligence Scoring** — Overall menu health score with classification (stars, workhorses, opportunities, dogs, hidden gems)
+- **Weekly Recommendations** — Seven prioritized recommendation types: price adjustment, promotional push, retention alert, cost review, operational fix, seasonal pivot, and menu engineering
+- **Learning System** — Tracks user feedback (approve/ignore) and outcomes to calibrate future suggestions
+- **Dashboard & Action Plan** — Visual dashboard with KPIs, top performers, risk flags, and a weekly action workflow
 
-**Use your preferred IDE**
+## Technology Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend:** Supabase (Auth, Postgres, Row Level Security, Edge Functions)
+- **Data:** Live Supabase data only — no mock data
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Project Structure
 
-Follow these steps:
+```
+src/
+  components/
+    dashboard/         # Dashboard widgets (KPIs, trends, performers)
+    onboarding/          # 7-step onboarding wizard
+    settings/            # Settings sections (CSV upload, POS sync)
+    shared/              # Reusable UI pieces (score rings, badges, bars)
+    ui/                  # shadcn/ui components
+    layout/              # App shell and navigation
+  hooks/                 # Data hooks (sales ingestion, dish profiles, recommendations)
+  contexts/              # Auth context
+  integrations/supabase/ # Supabase client and generated types
+  pages/                 # Route-level pages
+
+supabase/
+  functions/             # Edge Functions for data processing
+    ingest-sales/        # CSV/Excel normalization and storage
+    compute-dish-dna/    # Dish-level metrics
+    compute-menu-intelligence/  # Menu health scoring
+    compute-recommendations/  # Weekly recommendation generation
+    weekly-learning-job/ # Feedback/outcome analysis (Sunday 11pm)
+    sync-pos-sales/      # Direct POS integration
+```
+
+## Key Architecture Patterns
+
+- **Multi-tenant:** All data and queries are scoped to an active `restaurant_id`
+- **RLS with security definer helpers:** `has_role()`, `get_user_restaurant_id()` prevent recursive policy checks
+- **One task per screen:** Complex flows use a wizard pattern instead of nested modals
+- **Immediate state updates:** UI reflects changes without waiting for server round-trips
+- **Live data only:** The application exclusively uses real Supabase data; mock data is not permitted
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- A Supabase project (or use Lovable Cloud)
+
+### Install & Run
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+# Install dependencies
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Required variables (managed via secrets):
 
-**Use GitHub Codespaces**
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Database Setup
 
-## What technologies are used for this project?
+The project uses Supabase migrations for schema changes. Run migrations via the Supabase CLI or Lovable Cloud dashboard.
 
-This project is built with:
+Key tables:
+- `restaurants` — Tenant records
+- `sales_transactions` — Normalized POS sales data
+- `menu_items` — Dish profiles with cost, prep time, and category
+- `dish_dna_snapshots` — Computed dish metrics per week
+- `menu_intelligence_snapshots` — Weekly menu health scores
+- `recommendations` — Generated weekly suggestions
+- `recommendation_actions` — User feedback (approve/ignore)
+- `user_roles` — RBAC (owner / manager)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Edge Functions
 
-## How can I deploy this project?
+| Function | Purpose |
+|----------|---------|
+| `ingest-sales` | Normalizes and stores uploaded CSV/Excel sales data |
+| `sync-pos-sales` | Fetches and normalizes data from connected POS systems |
+| `compute-dish-dna` | Calculates profit DNA, kitchen stress, and demand patterns |
+| `compute-menu-intelligence` | Aggregates dish scores into a menu health score |
+| `compute-recommendations` | Generates prioritized weekly recommendations |
+| `weekly-learning-job` | Analyzes 12 weeks of feedback/outcomes to update learning parameters |
+| `weekly-recommendations-batch` | Batch recommendation generation trigger |
+| `aggregate-sales` | Sales aggregation for reporting |
+| `compute-outcomes` | Outcome tracking for the learning system |
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Design System
 
-## Can I connect a custom domain to my Lovable project?
+- **Dark monochrome first:** `#0a0a0a` background, `#1a1a1a`/`#2a2a2a` surfaces, `#e8e8e8` text
+- **Subtle status accents:** warning `#d4a574`, opportunity `#7a9d7a`, info `#7a8a9d`
+- **Typography:** Playfair Display for headings, DM Sans for body
+- **Spacing:** 8px base unit with generous padding
 
-Yes, you can!
+## Custom Domain
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+The project is configured with a custom domain:
+- **Production:** https://www.swadisham.com
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## License
+
+Proprietary — All rights reserved.

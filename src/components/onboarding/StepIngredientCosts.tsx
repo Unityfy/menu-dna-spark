@@ -73,8 +73,26 @@ const StepIngredientCosts = ({ data, onChange }: Props) => {
       };
 
       const costs = data.ingredientCosts.filter((c) => c.dishId !== dishId);
-      onChange({ ingredientCosts: [...costs, entry] });
+      const updates: Partial<OnboardingData> = { ingredientCosts: [...costs, entry] };
+
+      // Pre-fill prep time entry from AI data
+      if (entry.estimatedPrepMinutes || entry.complexity) {
+        const otherPrep = data.prepTimes.filter((p) => p.dishId !== dishId);
+        updates.prepTimes = [
+          ...otherPrep,
+          {
+            dishId,
+            dishName: dish.name,
+            prepTime: entry.estimatedPrepMinutes || 10,
+            station: data.prepTimes.find((p) => p.dishId === dishId)?.station || "Stovetop",
+            complexity: entry.complexity || "medium",
+          },
+        ];
+      }
+
+      onChange(updates);
       toast.success(`AI detected ${ingredients.length} ingredients for ${dish.name}`);
+
     } catch (e: any) {
       console.error("AI detect error:", e);
       toast.error(e.message || "Could not auto-detect ingredients");

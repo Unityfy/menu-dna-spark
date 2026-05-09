@@ -40,6 +40,14 @@ export interface IngredientCostEntry {
     unit: string;
   }[];
   totalFoodCost: number;
+  // AI-detected metadata
+  cuisine?: string;
+  prepStyle?: string;
+  complexity?: "low" | "medium" | "high";
+  complexityScore?: number;
+  estimatedPrepMinutes?: number;
+  aiNotes?: string;
+  aiGenerated?: boolean;
 }
 
 export interface PrepTimeEntry {

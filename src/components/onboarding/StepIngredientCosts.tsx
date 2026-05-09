@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Upload, ChevronLeft, ChevronRight, SkipForward, Download } from "lucide-react";
+import { Plus, Trash2, Upload, ChevronLeft, ChevronRight, SkipForward, Download, Sparkles, Loader2 } from "lucide-react";
 import { OnboardingData, MOCK_MENU_ITEMS } from "./types";
 import type { IngredientCostEntry } from "./types";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   data: OnboardingData;

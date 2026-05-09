@@ -30,6 +30,68 @@ const StepIngredientCosts = ({ data, onChange }: Props) => {
   const [mode, setMode] = useState<"manual" | "csv">("manual");
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
+
+  const unitToBaseFactor = (unit: string) =>
+    unit === "kg" || unit === "L" ? 1 : unit === "pc" ? 1 : 1 / 1000;
+
+  const autoDetectWithAI = async (dishId: string) => {
+    const dish = items.find((i) => i.id === dishId);
+    if (!dish) return;
+    setAiLoading(dishId);
+    try {
+      const { data: aiData, error } = await supabase.functions.invoke("analyze-dish", {
+        body: { dish_name: dish.name, category: dish.category },
+      });
+      if (error) throw error;
+      if (!aiData || aiData.error) throw new Error(aiData?.error || "AI analysis failed");
+
+      const ingredients = (aiData.ingredients || []).map((ing: any) => ({
+        name: String(ing.name || ""),
+        unitCost: Number(ing.unit_cost_inr) || 0,
+        portionQty: Number(ing.quantity) || 0,
+        unit: ["g", "kg", "ml", "L", "pc"].includes(ing.unit) ? ing.unit : "g",
+      }));
+
+      const total = ingredients.reduce(
+        (s: number, i: any) => s + i.unitCost * i.portionQty * unitToBaseFactor(i.unit),
+        0,
+      );
+
+      const entry: IngredientCostEntry = {
+        dishId,
+        dishName: dish.name,
+        ingredients: ingredients.length ? ingredients : [{ name: "", unitCost: 0, portionQty: 0, unit: "g" }],
+        totalFoodCost: Math.round(total * 100) / 100,
+        cuisine: aiData.cuisine,
+        prepStyle: aiData.prep_style,
+        complexity: aiData.complexity,
+        complexityScore: Number(aiData.complexity_score) || undefined,
+        estimatedPrepMinutes: Number(aiData.estimated_prep_minutes) || undefined,
+        aiNotes: aiData.notes,
+        aiGenerated: true,
+      };
+
+      const costs = data.ingredientCosts.filter((c) => c.dishId !== dishId);
+      onChange({ ingredientCosts: [...costs, entry] });
+      toast.success(`AI detected ${ingredients.length} ingredients for ${dish.name}`);
+    } catch (e: any) {
+      console.error("AI detect error:", e);
+      toast.error(e.message || "Could not auto-detect ingredients");
+    } finally {
+      setAiLoading(null);
+    }
+  };
+
+  const autoDetectAll = async () => {
+    for (const item of items) {
+      // Skip if already filled
+      const existing = data.ingredientCosts.find((c) => c.dishId === item.id);
+      if (existing && existing.ingredients.some((i) => i.name)) continue;
+      await autoDetectWithAI(item.id);
+    }
+  };
+
 
   const activeDishId = items[activeIdx]?.id || "";
 

@@ -248,18 +248,45 @@ const StepIngredientCosts = ({ data, onChange }: Props) => {
               />
             </div>
             <span className="text-xs text-muted-foreground">{completedCount}/{items.length}</span>
+            <button
+              onClick={autoDetectAll}
+              disabled={!!aiLoading}
+              className="flex items-center gap-1 rounded-md bg-foreground/10 border border-border px-2 py-1 text-[11px] text-foreground hover:bg-foreground/20 transition-colors disabled:opacity-40"
+              title="Auto-detect ingredients & costs for all dishes"
+            >
+              {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              AI all
+            </button>
           </div>
 
           {/* Active dish card */}
           <div className="rounded-md border border-border bg-secondary/30 p-4 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
                   Dish {activeIdx + 1} of {items.length}
                 </p>
                 <h3 className="text-sm font-semibold text-foreground">{items[activeIdx]?.name}</h3>
+                {(activeEntry.cuisine || activeEntry.prepStyle || activeEntry.complexity) && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {[activeEntry.cuisine, activeEntry.prepStyle, activeEntry.complexity && `${activeEntry.complexity} complexity${activeEntry.complexityScore ? ` · ${activeEntry.complexityScore}/10` : ""}`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
               </div>
-              <span className="text-[10px] text-muted-foreground">{items[activeIdx]?.category}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] text-muted-foreground">{items[activeIdx]?.category}</span>
+                <button
+                  onClick={() => autoDetectWithAI(activeDishId)}
+                  disabled={aiLoading === activeDishId}
+                  className="flex items-center gap-1 rounded-md bg-foreground text-background px-2 py-1 text-[11px] hover:opacity-90 transition-opacity disabled:opacity-40"
+                  title="Auto-detect ingredients with AI"
+                >
+                  {aiLoading === activeDishId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {aiLoading === activeDishId ? "Analyzing…" : "AI detect"}
+                </button>
+              </div>
             </div>
 
             {/* Ingredient rows */}

@@ -93,10 +93,10 @@ const MenuList = () => {
         ))}
       </div>
 
-      {/* Table */}
+      {/* Table (desktop) / Cards (mobile) */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
-        {/* Table header */}
-        <div className="grid grid-cols-[40px_1fr_80px_80px_80px_120px_100px] items-center px-5 py-3 border-b border-border">
+        {/* Table header — hidden on mobile */}
+        <div className="hidden md:grid grid-cols-[40px_1fr_80px_80px_80px_120px_100px] items-center px-5 py-3 border-b border-border">
           <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">#</span>
           <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Dish</span>
           <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground text-center">Margin</span>
@@ -115,41 +115,73 @@ const MenuList = () => {
             <button
               key={dish.id}
               onClick={() => navigate(`/dish/${dish.id}`)}
-              className="grid grid-cols-[40px_1fr_80px_80px_80px_120px_100px] items-center w-full px-5 py-4 border-b border-border/50 last:border-0 text-left hover:bg-secondary/30 transition-colors"
+              className={cn(
+                "w-full text-left border-b border-border/50 last:border-0 hover:bg-secondary/30 transition-colors",
+                // Desktop: table row
+                "md:grid md:grid-cols-[40px_1fr_80px_80px_80px_120px_100px] md:items-center md:px-5 md:py-4",
+                // Mobile: card layout
+                "block px-4 py-4 md:px-5"
+              )}
             >
-              <span className="text-xs text-muted-foreground font-medium">
+              {/* Desktop row layout */}
+              <span className="hidden md:inline text-xs text-muted-foreground font-medium">
                 {String(i + 1).padStart(2, "0")}
               </span>
 
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground font-[var(--font-display)]">
-                  {dish.name}
-                </p>
+                <div className="flex items-center gap-2 md:block">
+                  <p className="text-sm font-semibold text-foreground font-[var(--font-display)]">
+                    {dish.name}
+                  </p>
+                  {/* Mobile-only: inline badge */}
+                  <div className="md:hidden">
+                    <StatusBadge variant={badge.variant}>
+                      {badge.icon} {badge.label}
+                    </StatusBadge>
+                  </div>
+                </div>
                 <p className="text-xs text-muted-foreground">{dish.category}</p>
               </div>
 
-              <span className="text-sm text-foreground text-center font-medium">
+              {/* Mobile: compact metrics row */}
+              <div className="flex items-center gap-4 mt-2 md:hidden">
+                <span className="text-xs text-muted-foreground">
+                  Margin: <span className="text-foreground font-medium">{dish.margin.toFixed(0)}%</span>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Stress: <span className={cn("font-medium", dish.stress_score >= 70 ? "text-warning" : "text-foreground")}>{dish.stress_score}%</span>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Sales: <span className="text-foreground font-medium">{dish.weekly_orders}</span>
+                </span>
+                <span className={cn("text-xs font-medium ml-auto", trend.className)}>
+                  {trend.icon} {trend.label}
+                </span>
+              </div>
+
+              {/* Desktop-only columns */}
+              <span className="hidden md:block text-sm text-foreground text-center font-medium">
                 {dish.margin.toFixed(0)}%
               </span>
 
               <span className={cn(
-                "text-sm text-center font-medium",
+                "hidden md:block text-sm text-center font-medium",
                 dish.stress_score >= 70 ? "text-warning" : dish.stress_score >= 40 ? "text-info" : "text-foreground"
               )}>
                 {dish.stress_score}%
               </span>
 
-              <span className="text-sm text-foreground text-center font-medium">
+              <span className="hidden md:block text-sm text-foreground text-center font-medium">
                 {dish.weekly_orders}
               </span>
 
-              <div className="flex justify-center">
+              <div className="hidden md:flex justify-center">
                 <StatusBadge variant={badge.variant}>
                   {badge.icon} {badge.label}
                 </StatusBadge>
               </div>
 
-              <span className={cn("text-sm text-right font-medium", trend.className)}>
+              <span className={cn("hidden md:block text-sm text-right font-medium", trend.className)}>
                 {trend.icon} {trend.label}
               </span>
             </button>

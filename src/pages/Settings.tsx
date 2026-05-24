@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { useSalesIngestion } from "@/hooks/useSalesIngestion";
 import { Upload, FileText, CheckCircle, AlertCircle, X } from "lucide-react";
 import { toast } from "sonner";
@@ -332,6 +333,33 @@ const DataUploadSection = () => {
 
 const SettingsPage = () => {
   const { user } = useAuth();
+  const [restaurantName, setRestaurantName] = useState<string>("Loading…");
+  const [ownerName, setOwnerName] = useState<string>("Loading…");
+  const [planName, setPlanName] = useState<string>("—");
+
+  useEffect(() => {
+    const fetchRestaurantInfo = async () => {
+      if (!user) return;
+      // Fetch restaurant name
+      const { data: restaurantId } = await supabase.rpc("get_user_restaurant_id", { _user_id: user.id });
+      if (restaurantId) {
+        const { data: restaurant } = await supabase
+          .from("restaurants")
+          .select("name")
+          .eq("id", restaurantId)
+          .maybeSingle();
+        if (restaurant?.name) setRestaurantName(restaurant.name);
+        else setRestaurantName("Not set");
+      } else {
+        setRestaurantName("Not set");
+      }
+      // Use display name from user metadata or email
+      const displayName = user.user_metadata?.display_name || user.email?.split("@")[0] || "Owner";
+      setOwnerName(displayName);
+      setPlanName("Pro Monthly");
+    };
+    fetchRestaurantInfo();
+  }, [user]);
 
   return (
     <div className="max-w-4xl">
@@ -341,8 +369,8 @@ const SettingsPage = () => {
           {/* Restaurant */}
           <div>
             <SectionTitle>Restaurant</SectionTitle>
-            <SettingsRow label="Name" value="Spice Route" />
-            <SettingsRow label="Plan" value="Pro Monthly" />
+            <SettingsRow label="Name" value={restaurantName} />
+            <SettingsRow label="Plan" value={planName} />
           </div>
 
           {/* POS Sync */}
@@ -355,8 +383,8 @@ const SettingsPage = () => {
           {/* Account */}
           <div>
             <SectionTitle>Account</SectionTitle>
-            <SettingsRow label="Owner" value="Arjun Mehta" />
-            <SettingsRow label="Email" value={user?.email || "arjun@spiceroute.in"} />
+            <SettingsRow label="Owner" value={ownerName} />
+            <SettingsRow label="Email" value={user?.email || "—"} />
             <SettingsRow label="Role" value="Owner" />
             <div className="flex gap-3 mt-4">
               <button className="rounded-md border border-border bg-secondary px-5 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors">

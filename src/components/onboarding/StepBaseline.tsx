@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import CircularScore from "@/components/shared/CircularScore";
+import type { OnboardingData } from "./types";
 
 interface Props {
+  data: OnboardingData;
+  saving: boolean;
   onComplete: () => void;
 }
 
@@ -12,7 +15,7 @@ const PROGRESS_MESSAGES = [
   "Generating insights…",
 ];
 
-const StepBaseline = ({ onComplete }: Props) => {
+const StepBaseline = ({ data, saving, onComplete }: Props) => {
   const [phase, setPhase] = useState<"analyzing" | "done">("analyzing");
   const [msgIndex, setMsgIndex] = useState(0);
 
@@ -55,48 +58,79 @@ const StepBaseline = ({ onComplete }: Props) => {
     );
   }
 
+  // Compute summary from onboarding data
+  const validItems = data.menuItems.filter(item => !item.isDuplicate && item.name.trim());
+  const itemCount = validItems.length;
+
+  // Calculate average margin from cost data
+  const itemsWithCosts = validItems.map(item => {
+    const costEntry = data.ingredientCosts.find(c => c.dishId === item.id);
+    const cost = costEntry?.totalFoodCost || Math.round(item.sellingPrice * 0.35);
+    const margin = item.sellingPrice > 0 ? ((item.sellingPrice - cost) / item.sellingPrice) * 100 : 0;
+    return { ...item, cost, margin };
+  });
+
+  const avgMargin = itemsWithCosts.length > 0
+    ? Math.round(itemsWithCosts.reduce((s, i) => s + i.margin, 0) / itemsWithCosts.length)
+    : 0;
+
+  // Top performers (highest margin items)
+  const sortedByMargin = [...itemsWithCosts].sort((a, b) => b.margin - a.margin);
+  const topPerformers = sortedByMargin.slice(0, 3).map(i => i.name);
+
+  // Needs attention (lowest margin items)
+  const needsAttention = sortedByMargin.slice(-3).reverse().map(i => i.name);
+
+  // Estimated health score (simplified: margin weight + balance)
+  const healthScore = Math.min(100, Math.round(avgMargin * 0.8 + Math.min(itemCount, 20) * 1.5));
+
   return (
     <div className="text-center space-y-6 animate-in fade-in duration-500">
       <div>
         <p className="text-xs text-opportunity font-medium uppercase tracking-wider mb-3">Analysis Complete</p>
-        <CircularScore score={74} size={140} label="Menu Health Score" />
+        <CircularScore score={healthScore} size={140} label="Menu Health Score" />
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard label="Avg Margin" value="62%" />
-        <MetricCard label="Menu Items" value="8" />
-        <MetricCard label="Stress Score" value="32" />
+        <MetricCard label="Avg Margin" value={`${avgMargin}%`} />
+        <MetricCard label="Menu Items" value={String(itemCount)} />
+        <MetricCard label="Categories" value={String(new Set(validItems.map(i => i.category)).size)} />
       </div>
 
-      <div className="space-y-3">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">Top Performers</p>
-        <div className="grid grid-cols-3 gap-3">
-          {["Butter Chicken", "Paneer Tikka", "Gulab Jamun"].map((name) => (
-            <div key={name} className="rounded-md border border-opportunity/20 bg-opportunity/5 p-3">
-              <p className="text-sm text-foreground font-medium">{name}</p>
-              <p className="text-xs text-opportunity mt-0.5">High profit</p>
-            </div>
-          ))}
+      {topPerformers.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Top Performers</p>
+          <div className="grid grid-cols-3 gap-3">
+            {topPerformers.map((name) => (
+              <div key={name} className="rounded-md border border-opportunity/20 bg-opportunity/5 p-3">
+                <p className="text-sm text-foreground font-medium truncate">{name}</p>
+                <p className="text-xs text-opportunity mt-0.5">High profit</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="space-y-3">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">Needs Attention</p>
-        <div className="grid grid-cols-3 gap-3">
-          {["Garden Salad", "Truffle Risotto", "Mushroom Pasta"].map((name) => (
-            <div key={name} className="rounded-md border border-warning/20 bg-warning/5 p-3">
-              <p className="text-sm text-foreground font-medium">{name}</p>
-              <p className="text-xs text-warning mt-0.5">At risk</p>
-            </div>
-          ))}
+      {needsAttention.length > 0 && needsAttention[0] !== topPerformers[0] && (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Needs Attention</p>
+          <div className="grid grid-cols-3 gap-3">
+            {needsAttention.map((name) => (
+              <div key={name} className="rounded-md border border-warning/20 bg-warning/5 p-3">
+                <p className="text-sm text-foreground font-medium truncate">{name}</p>
+                <p className="text-xs text-warning mt-0.5">Review costs</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <button
         onClick={onComplete}
-        className="rounded-md bg-primary px-8 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+        disabled={saving}
+        className="rounded-md bg-primary px-8 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
       >
-        Go to Dashboard →
+        {saving ? "Saving…" : "Save & Go to Dashboard →"}
       </button>
     </div>
   );

@@ -37,15 +37,52 @@ export const useSalesIngestion = () => {
     return value;
   };
 
+  /** Parse a single CSV line respecting quoted fields (handles commas inside quotes) */
+  const parseCSVLine = (line: string): string[] => {
+    const fields: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          // Check for escaped quote ("")
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            current += '"';
+            i++; // skip next quote
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ",") {
+          fields.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+    }
+    fields.push(current.trim());
+    return fields;
+  };
+
   const parseCSV = (text: string): SalesRecord[] => {
-    const lines = text.trim().split("\n");
+    const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
     const records: SalesRecord[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",").map((v) => sanitizeCSVValue(v.trim()));
+      const line = lines[i].trim();
+      if (!line) continue;
+      const values = parseCSVLine(line).map((v) => sanitizeCSVValue(v));
       if (values.length < headers.length) continue;
 
       const row: Record<string, string> = {};

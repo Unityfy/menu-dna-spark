@@ -49,6 +49,21 @@ const Dashboard = () => {
 
   const riskItemCount = Object.values(snapshot.risk_summary as Record<string, number>).reduce((a, b) => a + b, 0);
 
+  // Compute relative time since last analysis
+  const computedAt = snapshot.computed_at ? new Date(snapshot.computed_at) : null;
+  const getRelativeTime = (date: Date | null): string => {
+    if (!date) return "Not yet analyzed";
+    const diffMs = Date.now() - date.getTime();
+    const mins = Math.floor(diffMs / 60_000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+  const lastAnalyzedLabel = `Last analyzed ${getRelativeTime(computedAt)}`;
+
   const topPerformers = (snapshot.top_profit_contributors as any[])?.slice(0, 5).map((d: any) => ({
     id: d.menu_item_id,
     name: d.name,
@@ -76,7 +91,7 @@ const Dashboard = () => {
       {/* Status bar */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Last analyzed 3 hours ago · {pendingRecs.length > 0 ? `${pendingRecs.length} pending actions` : "No pending actions"}
+          {lastAnalyzedLabel} · {pendingRecs.length > 0 ? `${pendingRecs.length} pending actions` : "No pending actions"}
         </p>
       </div>
 

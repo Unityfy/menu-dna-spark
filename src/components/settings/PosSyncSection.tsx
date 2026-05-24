@@ -28,10 +28,14 @@ const PosSyncSection = () => {
   const [syncing, setSyncing] = useState(false);
 
   const load = async () => {
+    if (!user) return;
+    // Use RPC to get the user's restaurant, then fetch sync state
+    const { data: restaurantId } = await supabase.rpc("get_user_restaurant_id", { _user_id: user.id });
+    if (!restaurantId) return;
     const { data } = await supabase
       .from("restaurants")
       .select("last_synced_at, last_sync_status, last_sync_error, pos_provider")
-      .limit(1)
+      .eq("id", restaurantId)
       .maybeSingle();
     if (data) setState(data as SyncState);
   };

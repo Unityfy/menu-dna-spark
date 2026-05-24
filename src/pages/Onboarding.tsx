@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const STORAGE_KEY = "menu-dna-onboarding-progress";
 import StepRestaurant from "@/components/onboarding/StepRestaurant";
@@ -23,6 +26,8 @@ const STEPS = [
 
 const Onboarding = () => {
   const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
   const [data, setData] = useState<OnboardingData>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -34,6 +39,97 @@ const Onboarding = () => {
     return INITIAL_ONBOARDING_DATA;
   });
   const navigate = useNavigate();
+
+  // Save all onboarding data to Supabase
+  const saveToSupabase = async (): Promise<boolean> => {
+    if (!user) return false;
+    setSaving(true);
+    try {
+      // 1. Create or update restaurant
+      const { data: existingRestaurantId } = await supabase.rpc("get_user_restaurant_id", { _user_id: user.id });
+
+      let restaurantId = existingRestaurantId;
+
+      if (!restaurantId) {
+        // Create new restaurant
+        const { data: newRestaurant, error: restErr } = await supabase
+          .from("restaurants")
+          .insert({
+            name: data.restaurantName,
+            cuisine_type: data.cuisine,
+            location: data.location,
+            outlet_type: data.outletType,
+            pos_provider: data.dataSource === "pos" ? data.posSystem : null,
+            owner_id: user.id,
+          })
+          .select("id")
+          .single();
+        if (restErr) throw restErr;
+        restaurantId = newRestaurant.id;
+      } else {
+        // Update existing restaurant
+        await supabase
+          .from("restaurants")
+          .update({
+            name: data.restaurantName,
+            cuisine_type: data.cuisine,
+            location: data.location,
+            outlet_type: data.outletType,
+            pos_provider: data.dataSource === "pos" ? data.posSystem : null,
+          })
+          .eq("id", restaurantId);
+      }
+
+      // 2. Insert menu items (skip duplicates by name)
+      if (data.menuItems.length > 0) {
+        const validItems = data.menuItems.filter(item => !item.isDuplicate && item.name.trim());
+
+        // Get existing items to avoid duplicates
+        const { data: existing } = await supabase
+          .from("menu_items")
+          .select("name")
+          .eq("restaurant_id", restaurantId);
+        const existingNames = new Set((existing || []).map((e: any) => e.name.toLowerCase()));
+
+        const newItems = validItems
+          .filter(item => !existingNames.has(item.name.toLowerCase()))
+          .map(item => {
+            // Find matching cost and prep data
+            const costEntry = data.ingredientCosts.find(c => c.dishId === item.id);
+            const prepEntry = data.prepTimes.find(p => p.dishId === item.id);
+
+            return {
+              restaurant_id: restaurantId,
+              name: item.name,
+              category: item.category,
+              selling_price: item.sellingPrice,
+              food_cost: costEntry?.totalFoodCost || Math.round(item.sellingPrice * 0.35),
+              prep_time_minutes: prepEntry?.prepTime || costEntry?.estimatedPrepMinutes || 0,
+              station: prepEntry?.station || "Stovetop",
+              complexity: prepEntry?.complexity || costEntry?.complexity || "medium",
+              is_active: true,
+            };
+          });
+
+        if (newItems.length > 0) {
+          const { error: insertErr } = await supabase.from("menu_items").insert(newItems);
+          if (insertErr) throw insertErr;
+        }
+      }
+
+      // 3. Clear localStorage progress
+      localStorage.removeItem(STORAGE_KEY);
+
+      toast.success("Restaurant setup saved successfully!");
+      return true;
+    } catch (err) {
+      console.error("Onboarding save error:", err);
+      toast.error("Failed to save — please try again");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Auto-save progress
   useEffect(() => {
@@ -88,7 +184,16 @@ const Onboarding = () => {
           {step === 3 && <StepIngredientCosts data={data} onChange={update} />}
           {step === 4 && <StepPrepTime data={data} onChange={update} />}
           {step === 5 && <StepValidation data={data} onFix={goTo} />}
-          {step === 6 && <StepBaseline onComplete={() => navigate("/dashboard")} />}
+          {step === 6 && (
+            <StepBaseline
+              data={data}
+              saving={saving}
+              onComplete={async () => {
+                const success = await saveToSupabase();
+                if (success) navigate("/dashboard");
+              }}
+            />
+          )}
         </div>
 
         {/* Auto-save hint */}

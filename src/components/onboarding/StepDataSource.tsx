@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Upload, Plug, Check, Loader2, FileText } from "lucide-react";
+import { Upload, Plug, Check, Loader2, FileText, AlertCircle, ExternalLink } from "lucide-react";
 import { OnboardingData, POS_SYSTEMS } from "./types";
 import { useSalesIngestion } from "@/hooks/useSalesIngestion";
 import { toast } from "sonner";
@@ -92,13 +92,89 @@ const StepDataSource = ({ data, onChange }: Props) => {
           </select>
         </div>
         {data.posSystem && (
-          <div className="rounded-md border border-border bg-secondary/50 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <Check className="h-4 w-4 text-opportunity" />
-              Read-only access confirmed
+          <div className="space-y-3">
+            {/* Connection instructions per POS */}
+            <div className="rounded-md border border-border bg-secondary/50 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Plug className="h-4 w-4" />
+                How to connect {POS_SYSTEMS.find(p => p.value === data.posSystem)?.label || "your POS"}
+              </div>
+
+              {data.posSystem === "petpooja" && (
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p><span className="font-medium text-foreground">Step 1:</span> Log into your Petpooja dashboard</p>
+                  <p><span className="font-medium text-foreground">Step 2:</span> Go to Settings → Third Party Integration → API Access</p>
+                  <p><span className="font-medium text-foreground">Step 3:</span> Copy your API Token and Restaurant ID</p>
+                  <p><span className="font-medium text-foreground">Step 4:</span> Paste them below</p>
+                </div>
+              )}
+              {data.posSystem === "posist" && (
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p><span className="font-medium text-foreground">Step 1:</span> Log into POSist Back Office</p>
+                  <p><span className="font-medium text-foreground">Step 2:</span> Go to Settings → Integrations → API Keys</p>
+                  <p><span className="font-medium text-foreground">Step 3:</span> Generate a read-only API key</p>
+                  <p><span className="font-medium text-foreground">Step 4:</span> Paste it below</p>
+                </div>
+              )}
+              {!["petpooja", "posist"].includes(data.posSystem) && (
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p><span className="font-medium text-foreground">Step 1:</span> Find API settings in your POS admin panel</p>
+                  <p><span className="font-medium text-foreground">Step 2:</span> Generate a read-only API key or token</p>
+                  <p><span className="font-medium text-foreground">Step 3:</span> Paste it below</p>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              We'll request view-only permissions to your menu and sales data. No changes will be made to your POS.
+
+            {/* API credentials input */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  API Key / Token
+                </label>
+                <input
+                  type="password"
+                  placeholder="Paste your API key here…"
+                  className={inputClass}
+                  onChange={(e) => onChange({ posSystem: data.posSystem })}
+                />
+              </div>
+              {data.posSystem === "petpooja" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Restaurant ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., 12345"
+                    className={inputClass}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Security notice */}
+            <div className="rounded-md border border-opportunity/30 bg-opportunity/5 p-3 space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-medium text-opportunity">
+                <Check className="h-3.5 w-3.5" />
+                Read-only access only
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Menu DNA only reads sales and menu data. We never modify orders, prices, or any POS settings.
+                Your credentials are encrypted and stored securely.
+              </p>
+            </div>
+
+            {/* Alternative: skip for now */}
+            <p className="text-xs text-muted-foreground/60 italic text-center">
+              Don't have your API key handy?{" "}
+              <button
+                type="button"
+                onClick={() => onChange({ dataSource: "csv" })}
+                className="underline hover:text-foreground transition-colors"
+              >
+                Upload a CSV instead
+              </button>{" "}
+              — you can connect your POS later from Settings.
             </p>
           </div>
         )}

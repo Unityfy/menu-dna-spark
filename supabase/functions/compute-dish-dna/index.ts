@@ -313,6 +313,7 @@ Deno.serve(async (req) => {
     const avgOrders = menuItems.length > 0 ? orderSum / menuItems.length : 50;
 
     // Peak orders-per-hour across full menu (for stress normalization)
+    // We bucket all orders by (date, hour) and find the maximum orders in any single hour slot
     const menuHourBuckets: Record<string, number> = {};
     for (const s of (sales || [])) {
       const dt = new Date(s.order_timestamp);
@@ -320,7 +321,8 @@ Deno.serve(async (req) => {
       menuHourBuckets[k] = (menuHourBuckets[k] || 0) + (s.quantity_sold || 1);
     }
     const peakOrdersPerHourMenu = Math.max(1, ...Object.values(menuHourBuckets));
-    const observedHours = Math.max(WEEKS * 7 * 12, 1); // ~12 service hrs/day
+    // Total observed service-hours used to compute average orders/hour per dish
+    const observedServiceHours = Math.max(WEEKS * 7 * 12, 1); // ~12 service hrs/day
 
     for (const { item } of menuItemMetrics) {
       const itemSales = dishSalesMap.get(item.name) || [];
@@ -351,12 +353,14 @@ Deno.serve(async (req) => {
       const volLabel = volatilityLabel(varianceRatio);
 
       // --- KITCHEN STRESS SCORE (40/30/30 per spec) ---
-      const ordersPerHour = totalQty / observedHours;
+      // Average orders-per-hour for this dish across all observed service hours
+      const ordersPerHour = totalQty / observedServiceHours;
+      // peakOrdersPerHourMenu is already a per-hour value (max orders in any single hour slot)
       const stressScore = computeStressScore(
         item.prep_time_minutes,
         varianceRatio,
         ordersPerHour,
-        peakOrdersPerHourMenu / observedHours
+        peakOrdersPerHourMenu
       );
 
       const spikeFreq = dailyCounts.filter((c) => c > avgDaily * 2).length;

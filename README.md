@@ -78,6 +78,7 @@ npm i
 npm run dev
 ```
 
+s
 ### Environment Variables
 
 Required variables (managed via secrets):

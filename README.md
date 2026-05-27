@@ -6,6 +6,7 @@ Menu DNA is a subscription-based SaaS platform that transforms a restaurant's st
 
 Restaurant owners upload POS sales data or connect their POS system. Menu DNA normalizes the data, computes dish-level intelligence (profitability, kitchen stress, demand patterns), and produces a weekly action plan with prioritized recommendations. A built-in learning system adapts to which recommendations users approve or ignore, improving relevance over time.
 
+s
 ## Target Audience
 
 - Restaurant owners
@@ -78,6 +79,7 @@ npm i
 npm run dev
 ```
 
+s
 ### Environment Variables
 
 Required variables (managed via secrets):
@@ -122,6 +124,7 @@ Key tables:
 
 ## Custom Domain
 
+a
 The project is configured with a custom domain:
 - **Production:** https://www.swadisham.com
 
